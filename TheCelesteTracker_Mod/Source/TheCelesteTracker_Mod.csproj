@@ -49,9 +49,14 @@
       </None>
     </ItemGroup>
 
-    <Target Name="CopyFiles" AfterTargets="Build" Inputs="$(OutputPath)\$(AssemblyName).dll;$(OutputPath)\$(AssemblyName).pdb" Outputs="..\bin\$(AssemblyName).dll;..\bin\$(AssemblyName).pdb">
-        <Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="..\bin" />
-        <Copy SourceFiles="$(OutputPath)\$(AssemblyName).pdb" DestinationFolder="..\bin" />
+    <Target Name="CopyFiles" AfterTargets="Build">
+        <Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="..\..\bin" />
+        <Copy SourceFiles="$(OutputPath)\$(AssemblyName).pdb" DestinationFolder="..\..\bin" />
+        <Copy SourceFiles="..\everest.yaml" DestinationFolder="..\.." />
+        <ItemGroup>
+            <MapsFiles Include="Maps\**\*.*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(MapsFiles)" DestinationFolder="..\..\Maps\%(RecursiveDir)" />
     </Target>
 
     <Target Name="PackageMod" AfterTargets="CopyFiles" Inputs="$(ZippedFiles)" Outputs="..\TheCelesteTracker_Mod.zip" Condition="'$(Configuration)' == 'Release'">

@@ -1,0 +1,6 @@
+- Name: TheCelesteTracker_Mod
+  Version: 0.1.0
+  DLL: bin/TheCelesteTracker_Mod.dll
+  Dependencies:
+    - Name: EverestCore
+      Version: 1.5935.0

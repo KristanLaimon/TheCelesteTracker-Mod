@@ -27,21 +27,21 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         {
             Instance = this;
 #if DEBUG
-            // debug builds use verbose logging
             Logger.SetLogLevel(nameof(TheCelesteTracker_ModModule), LogLevel.Verbose);
 #else
-            // release builds use info logging to reduce spam in log files
             Logger.SetLogLevel(nameof(TheCelesteTracker_ModModule), LogLevel.Info);
 #endif
         }
 
         public override void Load()
         {
-            typeof(TheCelesteTracker_ModExports).ModInterop(); // TODO: delete this line if you do not need to export any functions
+            typeof(TheCelesteTracker_ModExports).ModInterop();
 
             On.Celeste.Player.Die += Player_Die;
             On.Celeste.Level.TransitionRoutine += Level_TransitionRoutine;
             On.Celeste.Level.RegisterAreaComplete += Level_RegisterAreaComplete;
+            
+            Logger.Log(LogLevel.Info, nameof(TheCelesteTracker_ModModule), "Module Loaded!");
         }
 
         public override void Unload()
@@ -58,6 +58,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                 string room = level.Session.Level;
                 if (!ModSession.DeathsPerScreen.ContainsKey(room)) ModSession.DeathsPerScreen[room] = 0;
                 ModSession.DeathsPerScreen[room]++;
+                Logger.Log(LogLevel.Verbose, nameof(TheCelesteTracker_ModModule), $"Death in room: {room}");
             }
             return orig(self, dir, inv, register);
         }
@@ -71,6 +72,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         private static void Level_RegisterAreaComplete(On.Celeste.Level.orig_RegisterAreaComplete orig, Level self)
         {
             orig(self);
+            Logger.Log(LogLevel.Info, nameof(TheCelesteTracker_ModModule), "RegisterAreaComplete triggered!");
 
             ModSession.ScreensCompleted.Add(self.Session.Level);
 
@@ -79,20 +81,13 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             string key = $"{sid}_{mode}";
 
             if (ModSaveData.AreaBests == null) ModSaveData.AreaBests = new Dictionary<string, AreaBestStats>();
-            if (!ModSaveData.AreaBests.ContainsKey(key))
-            {
-                ModSaveData.AreaBests[key] = new AreaBestStats();
-            }
+            if (!ModSaveData.AreaBests.ContainsKey(key)) ModSaveData.AreaBests[key] = new AreaBestStats();
 
             AreaBestStats bests = ModSaveData.AreaBests[key];
-            
-            bool isNewBestTime = self.Session.Time < bests.BestTime;
-            bool isNewBestDeaths = self.Session.Deaths < bests.BestDeaths;
+            if (self.Session.Time < bests.BestTime) bests.BestTime = self.Session.Time;
+            if (self.Session.Deaths < bests.BestDeaths) bests.BestDeaths = self.Session.Deaths;
 
-            if (isNewBestTime) bests.BestTime = self.Session.Time;
-            if (isNewBestDeaths) bests.BestDeaths = self.Session.Deaths;
-
-            bool hasGolden = self.Tracker.GetEntities<Strawberry>().Cast<Strawberry>().Any(s => s.Golden && s.Follower.HasLeader);
+            bool hasGolden = self.Entities.FindAll<Strawberry>().Any(s => s.Golden && s.Follower.HasLeader);
 
             var completion = new LevelCompletionData
             {
@@ -111,6 +106,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             if (ModSaveData.RunHistory == null) ModSaveData.RunHistory = new List<LevelCompletionData>();
             ModSaveData.RunHistory.Add(completion);
 
+            // UI Message
             string msg = $"Cleared! Screens: {completion.Screens} | Time: {TimeSpan.FromTicks(completion.TimeTicks):hh\\:mm\\:ss\\.fff} | Deaths: {completion.Deaths} | Golden: {hasGolden}";
             self.Add(new MiniTextbox(msg));
         }
