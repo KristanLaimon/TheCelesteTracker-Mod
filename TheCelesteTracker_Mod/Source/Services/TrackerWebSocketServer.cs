@@ -7,17 +7,20 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Celeste.Mod.TheCelesteTracker_Mod
 {
     public static class TrackerWebSocketServer
     {
         private static HttpListener _listener;
-        private static readonly ConcurrentBag<WebSocket> _clients = new ConcurrentBag<WebSocket>();
+        private static readonly List<WebSocket> _clients = new List<WebSocket>();
+        private static readonly object _clientsLock = new object();
         private static CancellationTokenSource _cts;
 
         public static void Start()
         {
+            Stop(); // Ensure clean state
             _cts = new CancellationTokenSource();
             int port = 50500;
             bool started = false;
@@ -56,9 +59,13 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             _listener?.Stop();
             _listener?.Close();
 
-            foreach (var client in _clients)
+            lock (_clientsLock)
             {
-                client.Dispose();
+                foreach (var client in _clients)
+                {
+                    try { client.Dispose(); } catch { }
+                }
+                _clients.Clear();
             }
         }
 
@@ -72,7 +79,11 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                     if (context.Request.IsWebSocketRequest)
                     {
                         HttpListenerWebSocketContext wsContext = await context.AcceptWebSocketAsync(null);
-                        _clients.Add(wsContext.WebSocket);
+                        lock (_clientsLock)
+                        {
+                            _clients.Add(wsContext.WebSocket);
+                        }
+                        Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", "New WebSocket client connected.");
                         _ = HandleClient(wsContext.WebSocket, token);
                     }
                     else
@@ -96,7 +107,6 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             {
                 while (ws.State == WebSocketState.Open && !token.IsCancellationRequested)
                 {
-                    // Just keep the connection alive and wait for client to close
                     var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), token);
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
@@ -107,7 +117,9 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             catch { }
             finally
             {
+                lock (_clientsLock) { _clients.Remove(ws); }
                 ws.Dispose();
+                Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", "WebSocket client disconnected.");
             }
         }
 
@@ -117,29 +129,25 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             byte[] buffer = Encoding.UTF8.GetBytes(json);
             var segment = new ArraySegment<byte>(buffer);
 
-            List<WebSocket> toRemove = new List<WebSocket>();
-
-            foreach (var client in _clients)
+            WebSocket[] activeClients;
+            lock (_clientsLock)
             {
-                if (client.State == WebSocketState.Open)
-                {
-                    try
-                    {
-                        await client.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
-                    }
-                    catch
-                    {
-                        toRemove.Add(client);
-                    }
-                }
-                else
-                {
-                    toRemove.Add(client);
-                }
+                activeClients = _clients.Where(c => c.State == WebSocketState.Open).ToArray();
             }
 
-            // Cleanup disconnected clients (ignoring race conditions for simplicity in this mod context)
-            // In a production app, we'd use a more robust collection management.
+            if (activeClients.Length == 0) return;
+
+            foreach (var client in activeClients)
+            {
+                try
+                {
+                    await client.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log(LogLevel.Verbose, "TheCelesteTracker_Mod", $"Failed to send to client: {ex.Message}");
+                }
+            }
         }
     }
 }

@@ -7,6 +7,26 @@ using Monocle;
 
 namespace Celeste.Mod.TheCelesteTracker_Mod
 {
+    /// <summary>
+    /// Data Transfer Object for run statistics to avoid leaking internal mod logic or SQL types.
+    /// </summary>
+    public class RunStats
+    {
+        public string CampaignName { get; set; }
+        public string ChapterSID { get; set; }
+        public string ChapterName { get; set; }
+        public string Mode { get; set; }
+        public string CompletionTime { get; set; }
+        public long TimeTicks { get; set; }
+        public int Screens { get; set; }
+        public int Deaths { get; set; }
+        public int Strawberries { get; set; }
+        public bool Golden { get; set; }
+        public int SaveSlot { get; set; }
+        public string SaveName { get; set; }
+        public Dictionary<string, int> RoomDeaths { get; set; }
+    }
+
     public static class DatabaseManager
     {
         private static string DbPath => Path.Combine(Everest.PathGame, "Saves", "TheCelesteTracker.db");
@@ -14,79 +34,85 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
 
         public static void Init()
         {
-            using (var connection = new SqliteConnection(ConnectionString))
+            try
             {
-                connection.Open();
+                using (var connection = new SqliteConnection(ConnectionString))
+                {
+                    connection.Open();
+                    var command = connection.CreateCommand();
+                    command.CommandText = @"
+                        CREATE TABLE IF NOT EXISTS Users (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name TEXT UNIQUE
+                        );
 
-                var command = connection.CreateCommand();
-                command.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS Users (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name TEXT UNIQUE
-                    );
+                        CREATE TABLE IF NOT EXISTS SaveData (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER,
+                            slot_number INTEGER,
+                            file_name TEXT,
+                            FOREIGN KEY(user_id) REFERENCES Users(id)
+                        );
 
-                    CREATE TABLE IF NOT EXISTS SaveData (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER,
-                        slot_number INTEGER,
-                        file_name TEXT,
-                        FOREIGN KEY(user_id) REFERENCES Users(id)
-                    );
+                        CREATE TABLE IF NOT EXISTS Campaigns (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name TEXT UNIQUE
+                        );
 
-                    CREATE TABLE IF NOT EXISTS Campaigns (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name TEXT UNIQUE
-                    );
+                        CREATE TABLE IF NOT EXISTS SaveData_Campaign_Has (
+                            save_id INTEGER,
+                            campaign_id INTEGER,
+                            PRIMARY KEY(save_id, campaign_id),
+                            FOREIGN KEY(save_id) REFERENCES SaveData(id),
+                            FOREIGN KEY(campaign_id) REFERENCES Campaigns(id)
+                        );
 
-                    CREATE TABLE IF NOT EXISTS SaveData_Campaign_Has (
-                        save_id INTEGER,
-                        campaign_id INTEGER,
-                        PRIMARY KEY(save_id, campaign_id),
-                        FOREIGN KEY(save_id) REFERENCES SaveData(id),
-                        FOREIGN KEY(campaign_id) REFERENCES Campaigns(id)
-                    );
+                        CREATE TABLE IF NOT EXISTS Chapters (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            campaign_id INTEGER,
+                            sid TEXT,
+                            name TEXT,
+                            mode TEXT,
+                            UNIQUE(campaign_id, sid, mode),
+                            FOREIGN KEY(campaign_id) REFERENCES Campaigns(id)
+                        );
 
-                    CREATE TABLE IF NOT EXISTS Chapters (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        campaign_id INTEGER,
-                        sid TEXT,
-                        name TEXT,
-                        mode TEXT,
-                        UNIQUE(campaign_id, sid, mode),
-                        FOREIGN KEY(campaign_id) REFERENCES Campaigns(id)
-                    );
+                        CREATE TABLE IF NOT EXISTS Runs (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            save_id INTEGER,
+                            chapter_id INTEGER,
+                            completion_time TEXT,
+                            time_ticks INTEGER,
+                            screens INTEGER,
+                            deaths INTEGER,
+                            strawberries INTEGER,
+                            golden INTEGER,
+                            FOREIGN KEY(save_id) REFERENCES SaveData(id),
+                            FOREIGN KEY(chapter_id) REFERENCES Chapters(id)
+                        );
 
-                    CREATE TABLE IF NOT EXISTS Runs (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        save_id INTEGER,
-                        chapter_id INTEGER,
-                        completion_time TEXT,
-                        time_ticks INTEGER,
-                        screens INTEGER,
-                        deaths INTEGER,
-                        strawberries INTEGER,
-                        golden INTEGER,
-                        FOREIGN KEY(save_id) REFERENCES SaveData(id),
-                        FOREIGN KEY(chapter_id) REFERENCES Chapters(id)
-                    );
+                        CREATE TABLE IF NOT EXISTS RoomDeaths (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            run_id INTEGER,
+                            room_name TEXT,
+                            deaths INTEGER,
+                            FOREIGN KEY(run_id) REFERENCES Runs(id)
+                        );
+                    ";
+                    command.ExecuteNonQuery();
 
-                    CREATE TABLE IF NOT EXISTS RoomDeaths (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        run_id INTEGER,
-                        room_name TEXT,
-                        deaths INTEGER,
-                        FOREIGN KEY(run_id) REFERENCES Runs(id)
-                    );
-                ";
-                command.ExecuteNonQuery();
-
-                // Create default user
-                command.CommandText = "INSERT OR IGNORE INTO Users (name) VALUES ('Kristan');";
-                command.ExecuteNonQuery();
+                    // Create default user
+                    command.CommandText = "INSERT OR IGNORE INTO Users (name) VALUES ('Kristan');";
+                    command.ExecuteNonQuery();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(LogLevel.Error, "TheCelesteTracker_Mod", $"Database Init Error: {ex}");
             }
         }
 
-        public static void SaveRun(Level level, LevelCompletionData data)
+        public static void SaveRun(RunStats stats)
         {
             try
             {
@@ -95,30 +121,13 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                     connection.Open();
                     using (var transaction = connection.BeginTransaction())
                     {
-                        // 1. Get User ID
                         long userId = GetOrCreateUser(connection, transaction, "Kristan");
-
-                        // 2. Get SaveData ID
-                        var celesteSave = global::Celeste.SaveData.Instance;
-                        long saveId = GetOrCreateSaveData(connection, transaction, userId, celesteSave.FileSlot, celesteSave.Name);
-
-                        // 3. Get Campaign ID
-                        string levelSetName = level.Session.Area.GetLevelSet();
-                        long campaignId = GetOrCreateCampaign(connection, transaction, levelSetName);
-
-                        // 4. Update Junction Table
+                        long saveId = GetOrCreateSaveData(connection, transaction, userId, stats.SaveSlot, stats.SaveName);
+                        long campaignId = GetOrCreateCampaign(connection, transaction, stats.CampaignName);
                         UpdateJunction(connection, transaction, saveId, campaignId);
-
-                        // 5. Get Chapter ID
-                        string sid = level.Session.Area.GetSID();
-                        string chapterName = Dialog.Clean(level.Session.Area.GetSID());
-                        long chapterId = GetOrCreateChapter(connection, transaction, campaignId, sid, chapterName, level.Session.Area.Mode.ToString());
-
-                        // 6. Insert Run
-                        long runId = InsertRun(connection, transaction, saveId, chapterId, data);
-
-                        // 7. Insert Room Deaths
-                        InsertRoomDeaths(connection, transaction, runId, data.DeathsPerScreen);
+                        long chapterId = GetOrCreateChapter(connection, transaction, campaignId, stats.ChapterSID, stats.ChapterName, stats.Mode);
+                        long runId = InsertRun(connection, transaction, saveId, chapterId, stats);
+                        InsertRoomDeaths(connection, transaction, runId, stats.RoomDeaths);
 
                         transaction.Commit();
                     }
@@ -197,7 +206,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             return (long)cmd.ExecuteScalar();
         }
 
-        private static long InsertRun(SqliteConnection conn, SqliteTransaction trans, long saveId, long chapterId, LevelCompletionData data)
+        private static long InsertRun(SqliteConnection conn, SqliteTransaction trans, long saveId, long chapterId, RunStats stats)
         {
             var cmd = conn.CreateCommand();
             cmd.Transaction = trans;
@@ -207,12 +216,12 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                 SELECT last_insert_rowid();";
             cmd.Parameters.AddWithValue("@sid", saveId);
             cmd.Parameters.AddWithValue("@chid", chapterId);
-            cmd.Parameters.AddWithValue("@time", data.CompletionTime);
-            cmd.Parameters.AddWithValue("@ticks", data.TimeTicks);
-            cmd.Parameters.AddWithValue("@screens", data.Screens);
-            cmd.Parameters.AddWithValue("@deaths", data.Deaths);
-            cmd.Parameters.AddWithValue("@strawberries", data.Strawberries);
-            cmd.Parameters.AddWithValue("@golden", data.Golden ? 1 : 0);
+            cmd.Parameters.AddWithValue("@time", stats.CompletionTime);
+            cmd.Parameters.AddWithValue("@ticks", stats.TimeTicks);
+            cmd.Parameters.AddWithValue("@screens", stats.Screens);
+            cmd.Parameters.AddWithValue("@deaths", stats.Deaths);
+            cmd.Parameters.AddWithValue("@strawberries", stats.Strawberries);
+            cmd.Parameters.AddWithValue("@golden", stats.Golden ? 1 : 0);
             return (long)cmd.ExecuteScalar();
         }
 
