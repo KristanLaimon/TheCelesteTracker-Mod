@@ -4,7 +4,6 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
 {
     public class TheCelesteTracker_ModModuleSaveData : EverestModuleSaveData
     {
-        public List<LevelCompletionData> RunHistory { get; set; } = new List<LevelCompletionData>();
         public Dictionary<string, AreaBestStats> AreaBests { get; set; } = new Dictionary<string, AreaBestStats>();
     }
 
@@ -22,6 +21,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         public int Screens { get; set; }
         public long TimeTicks { get; set; }
         public int Deaths { get; set; }
+        public int Strawberries { get; set; }
         public Dictionary<string, int> DeathsPerScreen { get; set; }
         public long PersonalBestTime { get; set; }
         public int PersonalBestDeaths { get; set; }

@@ -9,23 +9,23 @@
         <CelestePrefix Condition="'$(CelestePrefix)' == ''">lib-stripped</CelestePrefix>
         <ZippedFiles>..\everest.yaml;..\bin\**\*.*;..\Audio\**\*.*;..\Dialog\**\*.*;..\Graphics\**\*.*;..\Ahorn\**\*.*;..\Loenn\**\*.*</ZippedFiles>
         <Configurations>Debug;Release;Debug (To Zip)</Configurations>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 
     <!--Disable "Copy Local" for all references-->
     <ItemDefinitionGroup>
-        <PackageReference PrivateAssets="all" ExcludeAssets="runtime" />
-        <Reference Private="false" />
     </ItemDefinitionGroup>
 
     <ItemGroup>
-        <PackageReference Include="MonoMod.RuntimeDetour" Version="25.3.1" PrivateAssets="all" ExcludeAssets="runtime" />
-        <PackageReference Include="MonoMod.Patcher" Version="25.0.0-prerelease.2" />
-        <PackageReference Include="CelesteAnalyzer" Version="*" />
+        <PackageReference Include="MonoMod.RuntimeDetour" Version="25.3.1" PrivateAssets="all" />
+        <PackageReference Include="MonoMod.Patcher" Version="25.0.0-prerelease.2" PrivateAssets="all" />
+        <PackageReference Include="CelesteAnalyzer" Version="*" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="CelesteMod.Publicizer" Version="*" CelesteAssembly="$(CelestePrefix)\Celeste.dll" />
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+        <PackageReference Include="CelesteMod.Publicizer" Version="*" CelesteAssembly="$(CelestePrefix)\Celeste.dll" PrivateAssets="all" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.4" />
     </ItemGroup>
 
     <ItemGroup>
@@ -50,8 +50,13 @@
     </ItemGroup>
 
     <Target Name="CopyFiles" AfterTargets="Build">
-        <Copy SourceFiles="$(OutputPath)\$(AssemblyName).dll" DestinationFolder="..\..\bin" />
-        <Copy SourceFiles="$(OutputPath)\$(AssemblyName).pdb" DestinationFolder="..\..\bin" />
+        <ItemGroup>
+            <BuildArtifacts Include="$(OutputPath)\*.dll" Exclude="$(OutputPath)\Celeste.dll;$(OutputPath)\FNA.dll;$(OutputPath)\MMHOOK_Celeste.dll" />
+            <BuildArtifacts Include="$(OutputPath)\*.pdb" Exclude="$(OutputPath)\Celeste.pdb;$(OutputPath)\FNA.pdb;$(OutputPath)\MMHOOK_Celeste.pdb" />
+            <NativeSqlite Include="$(OutputPath)\runtimes\win-x64\native\e_sqlite3.dll" />
+        </ItemGroup>
+        <Copy SourceFiles="@(BuildArtifacts)" DestinationFolder="..\..\bin" />
+        <Copy SourceFiles="@(NativeSqlite)" DestinationFolder="..\..\bin" />
         <Copy SourceFiles="..\everest.yaml" DestinationFolder="..\.." />
         <ItemGroup>
             <MapsFiles Include="Maps\**\*.*" />
