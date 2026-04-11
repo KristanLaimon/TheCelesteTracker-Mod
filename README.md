@@ -2,7 +2,7 @@
 
 ![TheCelesteTracker](.github/banner.png)
 
-A real-time gameplay tracking mod for **Celeste** (Everest). It monitors your progress, deaths, dashes, and level completions, storing everything in a local SQLite database and streaming events via WebSockets. Works for generic use, but built to feed the [official 'TheCelesteTracker' client](www.google.com).
+A real-time gameplay tracking mod for **Celeste** (Everest). It monitors your progress, deaths, dashes, and level completions, storing everything in a local SQLite database and streaming events via WebSockets. Works for generic use, but built to feed the [official 'TheCelesteTracker' client](https://github.com/KristanLaimon/TheCelesteTracker-Desktop).
 
 \***_Under development, eventually there will be an official release in gamebanana_**
 
