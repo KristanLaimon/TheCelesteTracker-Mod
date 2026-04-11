@@ -1,0 +1,5 @@
+- Name: TheCelesteTracker
+  Version: 0.0.1
+  Dependencies:
+  - Name: Everest
+    Version: 1.6249.0
