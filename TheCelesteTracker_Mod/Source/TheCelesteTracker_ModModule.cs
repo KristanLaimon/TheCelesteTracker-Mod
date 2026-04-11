@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using Monocle;
 using Microsoft.Xna.Framework;
 using Celeste;
+using System.Threading.Tasks;
 
 namespace Celeste.Mod.TheCelesteTracker_Mod
 {
@@ -40,6 +41,10 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             On.Celeste.Player.Die += Player_Die;
             On.Celeste.Level.TransitionRoutine += Level_TransitionRoutine;
             On.Celeste.Level.RegisterAreaComplete += Level_RegisterAreaComplete;
+            On.Celeste.Player.DashBegin += Player_DashBegin;
+            On.Celeste.LevelExit.ctor += LevelExit_ctor;
+
+            TrackerWebSocketServer.Start();
             
             Logger.Log(LogLevel.Info, nameof(TheCelesteTracker_ModModule), "Module Loaded!");
         }
@@ -49,6 +54,33 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             On.Celeste.Player.Die -= Player_Die;
             On.Celeste.Level.TransitionRoutine -= Level_TransitionRoutine;
             On.Celeste.Level.RegisterAreaComplete -= Level_RegisterAreaComplete;
+            On.Celeste.Player.DashBegin -= Player_DashBegin;
+            On.Celeste.LevelExit.ctor -= LevelExit_ctor;
+
+            TrackerWebSocketServer.Stop();
+        }
+
+        private static void Player_DashBegin(On.Celeste.Player.orig_DashBegin orig, Player self)
+        {
+            orig(self);
+            if (Engine.Scene is Level level)
+            {
+                var ev = new { Type = "Dash", TotalDashes = level.Session.Dashes };
+                _ = TrackerWebSocketServer.BroadcastEvent(ev);
+            }
+        }
+
+        private static void LevelExit_ctor(On.Celeste.LevelExit.orig_ctor orig, LevelExit self, LevelExit.Mode mode, Session session, HiresSnow snow)
+        {
+            orig(self, mode, session, snow);
+            string action = mode switch
+            {
+                LevelExit.Mode.SaveAndQuit => "SAVE_AND_QUIT",
+                LevelExit.Mode.GiveUp => "RETURN_TO_MAP",
+                _ => "MAIN_MENU"
+            };
+            var ev = new { Type = "MenuAction", Action = action };
+            _ = TrackerWebSocketServer.BroadcastEvent(ev);
         }
 
         private static PlayerDeadBody Player_Die(On.Celeste.Player.orig_Die orig, Player self, Vector2 dir, bool inv, bool register)
@@ -58,7 +90,14 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                 string room = level.Session.Level;
                 if (!ModSession.DeathsPerScreen.ContainsKey(room)) ModSession.DeathsPerScreen[room] = 0;
                 ModSession.DeathsPerScreen[room]++;
-                Logger.Log(LogLevel.Verbose, nameof(TheCelesteTracker_ModModule), $"Death in room: {room}");
+                
+                var ev = new { 
+                    Type = "Death",
+                    TotalDeaths = level.Session.Deaths, 
+                    RoomDeaths = ModSession.DeathsPerScreen[room], 
+                    RoomName = room 
+                };
+                _ = TrackerWebSocketServer.BroadcastEvent(ev);
             }
             return orig(self, dir, inv, register);
         }
@@ -66,14 +105,21 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         private static System.Collections.IEnumerator Level_TransitionRoutine(On.Celeste.Level.orig_TransitionRoutine orig, Level self, LevelData next, Vector2 dir)
         {
             ModSession.ScreensCompleted.Add(self.Session.Level);
+            
+            var ev = new { 
+                Type = "LevelInfo",
+                AreaSid = self.Session.Area.GetSID(), 
+                RoomName = next.Name, 
+                Mode = self.Session.Area.Mode.ToString() 
+            };
+            _ = TrackerWebSocketServer.BroadcastEvent(ev);
+
             return orig(self, next, dir);
         }
 
         private static void Level_RegisterAreaComplete(On.Celeste.Level.orig_RegisterAreaComplete orig, Level self)
         {
             orig(self);
-            Logger.Log(LogLevel.Info, nameof(TheCelesteTracker_ModModule), "RegisterAreaComplete triggered!");
-
             ModSession.ScreensCompleted.Add(self.Session.Level);
 
             string sid = self.Session.Area.GetSID();
@@ -106,7 +152,9 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             if (ModSaveData.RunHistory == null) ModSaveData.RunHistory = new List<LevelCompletionData>();
             ModSaveData.RunHistory.Add(completion);
 
-            // UI Message
+            var ev = new { Type = "AreaComplete", Stats = completion };
+            _ = TrackerWebSocketServer.BroadcastEvent(ev);
+
             string msg = $"Cleared! Screens: {completion.Screens} | Time: {TimeSpan.FromTicks(completion.TimeTicks):hh\\:mm\\:ss\\.fff} | Deaths: {completion.Deaths} | Golden: {hasGolden}";
             self.Add(new MiniTextbox(msg));
         }
