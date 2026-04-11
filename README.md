@@ -33,7 +33,7 @@ The mod uses a relational SQLite database located at `Saves/TheCelesteTracker.db
 
 ## Real-time API
 
-Connect to `ws://localhost:50500/` to receive JSON events. See [API.md](./API.md) for the full protocol documentation.
+Connect to `ws://localhost:50500/` to receive JSON events. See [API.md](./TheCelesteTracker_Mod/API.md) for the full protocol documentation.
 
 ### Example Event (Death):
 
