@@ -1,6 +1,10 @@
 # TheCelesteTracker
 
-A real-time gameplay tracking mod for **Celeste** (Everest). It monitors your progress, deaths, dashes, and level completions, storing everything in a local SQLite database and streaming events via WebSockets.
+![TheCelesteTracker](.github/banner.png)
+
+A real-time gameplay tracking mod for **Celeste** (Everest). It monitors your progress, deaths, dashes, and level completions, storing everything in a local SQLite database and streaming events via WebSockets. Works for generic use, but built to feed the [official 'TheCelesteTracker' client](www.google.com).
+
+\***_Under development, eventually there will be an official release in gamebanana_**
 
 ## Features
 
@@ -19,6 +23,7 @@ A real-time gameplay tracking mod for **Celeste** (Everest). It monitors your pr
 ## Database Schema
 
 The mod uses a relational SQLite database located at `Saves/TheCelesteTracker.db`:
+
 - **Users:** Multi-user support.
 - **SaveData:** Links stats to your Celeste save slots.
 - **Campaigns:** Tracks mods/vanilla separately.
@@ -31,6 +36,7 @@ The mod uses a relational SQLite database located at `Saves/TheCelesteTracker.db
 Connect to `ws://localhost:50500/` to receive JSON events. See [API.md](./API.md) for the full protocol documentation.
 
 ### Example Event (Death):
+
 ```json
 {
   "Type": "Death",
@@ -43,14 +49,16 @@ Connect to `ws://localhost:50500/` to receive JSON events. See [API.md](./API.md
 ## Developers
 
 ### Building
+
 Requirements: .NET 8 SDK.
+
 ```bash
 dotnet build Source/TheCelesteTracker_Mod.csproj
 ```
+
 The build script automatically copies the DLLs and assets to the root directory for easy testing.
 
-### Relational Model
-The database follows a 1:M and M:N structure to ensure scalability for thousands of hours of gameplay.
-
 ## License
+
 MIT
+
