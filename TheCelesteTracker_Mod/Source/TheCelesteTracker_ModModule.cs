@@ -6,11 +6,12 @@ using System.Collections.Generic;
 using System.Linq;
 using Celeste;
 
+#nullable enable
 namespace Celeste.Mod.TheCelesteTracker_Mod
 {
     public class TheCelesteTracker_ModModule : EverestModule
     {
-        public static TheCelesteTracker_ModModule Instance { get; private set; }
+        public static TheCelesteTracker_ModModule Instance { get; private set; } = null!;
 
         public override Type SettingsType => typeof(TheCelesteTracker_ModModuleSettings);
         public static TheCelesteTracker_ModModuleSettings Settings => (TheCelesteTracker_ModModuleSettings)Instance._Settings;
@@ -21,7 +22,8 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         public override Type SaveDataType => typeof(TheCelesteTracker_ModModuleSaveData);
         public static TheCelesteTracker_ModModuleSaveData ModSaveData => (TheCelesteTracker_ModModuleSaveData)Instance._SaveData;
 
-        private bool _areaCompleteHandled = false;
+        private static bool _areaCompleteHandled = false;
+        private static int _lastPopulatedSlot = -1;
 
         public TheCelesteTracker_ModModule()
         {
@@ -62,18 +64,33 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             TrackerWebSocketServer.Stop();
         }
 
-        private void Level_Begin(On.Celeste.Level.orig_Begin orig, Level self)
+        private static void Level_Begin(On.Celeste.Level.orig_Begin orig, Level self)
         {
             orig(self);
             _areaCompleteHandled = false;
+
+            // Check if we need to populate historical data for this save slot
+            // Only check if we haven't already confirmed this slot in this session
+            if (global::Celeste.SaveData.Instance != null && _lastPopulatedSlot != global::Celeste.SaveData.Instance.FileSlot)
+            {
+                if (!DatabaseManager.IsSaveSlotPopulated(global::Celeste.SaveData.Instance.FileSlot))
+                {
+                    DatabaseManager.PopulateFromVanilla(global::Celeste.SaveData.Instance);
+                }
+                _lastPopulatedSlot = global::Celeste.SaveData.Instance.FileSlot;
+            }
             
             ModSession.ScreensCompleted.Clear();
             ModSession.DeathsPerScreen.Clear();
             ModSession.ScreensCompleted.Add(self.Session.Level);
 
+            // Start Run in DB
+            ModSession.CurrentRunId = DatabaseManager.SaveRun(GetRunStats(self, null));
+
             var ev = new { 
                 Type = "LevelStart",
                 AreaSid = self.Session.Area.GetSID(), 
+                ChapterName = Dialog.Clean(AreaData.Get(self.Session.Area).Name),
                 RoomName = self.Session.Level, 
                 Mode = self.Session.Area.Mode.ToString() 
             };
@@ -93,6 +110,13 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         private static void LevelExit_ctor(On.Celeste.LevelExit.orig_ctor orig, LevelExit self, LevelExit.Mode mode, Session session, HiresSnow snow)
         {
             orig(self, mode, session, snow);
+
+            // Update Run in DB (incomplete) if we were in a run
+            if (ModSession.CurrentRunId.HasValue && Engine.Scene is Level level)
+            {
+                DatabaseManager.UpdateRunStats(ModSession.CurrentRunId.Value, GetRunStats(level, null));
+            }
+
             string action = mode switch
             {
                 LevelExit.Mode.SaveAndQuit => "SAVE_AND_QUIT",
@@ -101,6 +125,26 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             };
             var ev = new { Type = "MenuAction", Action = action };
             _ = TrackerWebSocketServer.BroadcastEvent(ev);
+        }
+
+        private static RunStats GetRunStats(Level level, string? completionTime)
+        {
+            return new RunStats
+            {
+                CampaignName = level.Session.Area.GetLevelSet(),
+                ChapterSID = level.Session.Area.GetSID(),
+                ChapterName = Dialog.Clean(AreaData.Get(level.Session.Area).Name),
+                Mode = level.Session.Area.Mode.ToString(),
+                CompletionTime = completionTime,
+                TimeTicks = level.Session.Time,
+                Screens = ModSession.ScreensCompleted.Count,
+                Deaths = level.Session.Deaths,
+                Strawberries = level.Session.Strawberries.Count,
+                Golden = level.Entities.FindAll<Strawberry>().Any(s => s.Golden && s.Follower.HasLeader),
+                SaveSlot = global::Celeste.SaveData.Instance.FileSlot,
+                SaveName = global::Celeste.SaveData.Instance.Name,
+                RoomDeaths = new Dictionary<string, int>(ModSession.DeathsPerScreen)
+            };
         }
 
         private static PlayerDeadBody Player_Die(On.Celeste.Player.orig_Die orig, Player self, Microsoft.Xna.Framework.Vector2 dir, bool inv, bool register)
@@ -129,6 +173,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             var ev = new { 
                 Type = "LevelInfo",
                 AreaSid = self.Session.Area.GetSID(), 
+                ChapterName = Dialog.Clean(AreaData.Get(self.Session.Area).Name),
                 RoomName = next.Name, 
                 Mode = self.Session.Area.Mode.ToString() 
             };
@@ -137,7 +182,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             return orig(self, next, dir);
         }
 
-        private void Level_RegisterAreaComplete(On.Celeste.Level.orig_RegisterAreaComplete orig, Level self)
+        private static void Level_RegisterAreaComplete(On.Celeste.Level.orig_RegisterAreaComplete orig, Level self)
         {
             orig(self);
             if (_areaCompleteHandled) return;
@@ -173,23 +218,12 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                 Golden = hasGolden
             };
 
-            // Database Save
-            DatabaseManager.SaveRun(new RunStats
+            // Database Update (Finalize)
+            if (ModSession.CurrentRunId.HasValue)
             {
-                CampaignName = self.Session.Area.GetLevelSet(),
-                ChapterSID = sid,
-                ChapterName = Dialog.Clean(self.Session.Area.GetSID()),
-                Mode = mode,
-                CompletionTime = completion.CompletionTime,
-                TimeTicks = completion.TimeTicks,
-                Screens = completion.Screens,
-                Deaths = completion.Deaths,
-                Strawberries = completion.Strawberries,
-                Golden = completion.Golden,
-                SaveSlot = global::Celeste.SaveData.Instance.FileSlot,
-                SaveName = global::Celeste.SaveData.Instance.Name,
-                RoomDeaths = completion.DeathsPerScreen
-            });
+                DatabaseManager.UpdateRunStats(ModSession.CurrentRunId.Value, GetRunStats(self, completion.CompletionTime));
+                ModSession.CurrentRunId = null;
+            }
 
             var ev = new { Type = "AreaComplete", Stats = completion };
             _ = TrackerWebSocketServer.BroadcastEvent(ev);

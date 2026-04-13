@@ -9,14 +9,15 @@ using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Linq;
 
+#nullable enable
 namespace Celeste.Mod.TheCelesteTracker_Mod
 {
     public static class TrackerWebSocketServer
     {
-        private static HttpListener _listener;
+        private static HttpListener? _listener;
         private static readonly List<WebSocket> _clients = new List<WebSocket>();
         private static readonly object _clientsLock = new object();
-        private static CancellationTokenSource _cts;
+        private static CancellationTokenSource? _cts;
 
         public static void Start()
         {
@@ -39,6 +40,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                 {
                     port++;
                     _listener?.Close();
+                    _listener = null;
                 }
                 catch (Exception ex)
                 {
@@ -47,7 +49,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                 }
             }
 
-            if (started)
+            if (started && _listener != null)
             {
                 Task.Run(() => AcceptConnections(_cts.Token));
             }
@@ -58,6 +60,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             _cts?.Cancel();
             _listener?.Stop();
             _listener?.Close();
+            _listener = null;
 
             lock (_clientsLock)
             {
@@ -71,6 +74,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
 
         private static async Task AcceptConnections(CancellationToken token)
         {
+            if (_listener == null) return;
             while (!token.IsCancellationRequested)
             {
                 try
@@ -84,6 +88,15 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                             _clients.Add(wsContext.WebSocket);
                         }
                         Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", "New WebSocket client connected.");
+                        
+                        // Send DB location and versions immediately
+                        _ = SendToClient(wsContext.WebSocket, new { 
+                            Type = "DatabaseLocation", 
+                            Path = DatabaseManager.DbPath,
+                            EverestVersion = Everest.Version.ToString(),
+                            ModVersion = TheCelesteTracker_ModModule.Instance.Metadata.Version.ToString()
+                        });
+
                         _ = HandleClient(wsContext.WebSocket, token);
                     }
                     else
@@ -139,14 +152,29 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
 
             foreach (var client in activeClients)
             {
-                try
+                await SendToClient(client, segment);
+            }
+        }
+
+        private static async Task SendToClient(WebSocket client, object payload)
+        {
+            string json = JsonConvert.SerializeObject(payload);
+            byte[] buffer = Encoding.UTF8.GetBytes(json);
+            await SendToClient(client, new ArraySegment<byte>(buffer));
+        }
+
+        private static async Task SendToClient(WebSocket client, ArraySegment<byte> segment)
+        {
+            try
+            {
+                if (client.State == WebSocketState.Open)
                 {
                     await client.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
                 }
-                catch (Exception ex)
-                {
-                    Logger.Log(LogLevel.Verbose, "TheCelesteTracker_Mod", $"Failed to send to client: {ex.Message}");
-                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(LogLevel.Verbose, "TheCelesteTracker_Mod", $"Failed to send to client: {ex.Message}");
             }
         }
     }

@@ -51,8 +51,8 @@
 
     <Target Name="CopyFiles" AfterTargets="Build">
         <ItemGroup>
-            <BuildArtifacts Include="$(OutputPath)\*.dll" Exclude="$(OutputPath)\Celeste.dll;$(OutputPath)\FNA.dll;$(OutputPath)\MMHOOK_Celeste.dll" />
-            <BuildArtifacts Include="$(OutputPath)\*.pdb" Exclude="$(OutputPath)\Celeste.pdb;$(OutputPath)\FNA.pdb;$(OutputPath)\MMHOOK_Celeste.pdb" />
+            <BuildArtifacts Include="$(OutputPath)\*.dll" Exclude="$(OutputPath)\Celeste.dll;$(OutputPath)\FNA.dll;$(OutputPath)\MMHOOK_Celeste.dll;$(OutputPath)\Newtonsoft.Json.dll;$(OutputPath)\MonoMod.*.dll;$(OutputPath)\Mono.Cecil*.dll;$(OutputPath)\AsmResolver*.dll;$(OutputPath)\Microsoft.Build*.dll" />
+            <BuildArtifacts Include="$(OutputPath)\*.pdb" Exclude="$(OutputPath)\Celeste.pdb;$(OutputPath)\FNA.pdb;$(OutputPath)\MMHOOK_Celeste.pdb;$(OutputPath)\Newtonsoft.Json.pdb;$(OutputPath)\MonoMod.*.pdb;$(OutputPath)\Mono.Cecil*.pdb;$(OutputPath)\AsmResolver*.pdb;$(OutputPath)\Microsoft.Build*.pdb" />
             <NativeSqlite Include="$(OutputPath)\runtimes\win-x64\native\e_sqlite3.dll" />
         </ItemGroup>
         <Copy SourceFiles="@(BuildArtifacts)" DestinationFolder="..\..\bin" />
