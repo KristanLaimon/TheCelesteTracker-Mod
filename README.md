@@ -24,12 +24,12 @@ A real-time gameplay tracking mod for **Celeste** (Everest). It monitors your pr
 
 The mod uses a relational SQLite database located at `Saves/TheCelesteTracker.db`:
 
-- **Users:** Multi-user support.
+- **User:** Multi-user support.
 - **SaveData:** Links stats to your Celeste save slots.
-- **Campaigns:** Tracks mods/vanilla separately.
-- **Chapters:** Organized by SID and Mode (A/B/C).
-- **Runs:** Individual completion data.
-- **RoomDeaths:** Persistent history of where you die.
+- **Campaign:** Tracks mods/vanilla separately.
+- **Chapter:** Organized by SID and Mode (A/B/C).
+- **Run:** Individual completion data.
+- **RoomDeath:** Persistent history of where you die.
 
 ## Real-time API
 

@@ -41,7 +41,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                     connection.Open();
                     var command = connection.CreateCommand();
                     command.CommandText = @"
-                        CREATE TABLE IF NOT EXISTS Users (
+                        CREATE TABLE IF NOT EXISTS User (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             name TEXT UNIQUE
                         );
@@ -51,33 +51,33 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                             user_id INTEGER,
                             slot_number INTEGER,
                             file_name TEXT,
-                            FOREIGN KEY(user_id) REFERENCES Users(id)
+                            FOREIGN KEY(user_id) REFERENCES User(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS Campaigns (
+                        CREATE TABLE IF NOT EXISTS Campaign (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             name TEXT UNIQUE
                         );
 
-                        CREATE TABLE IF NOT EXISTS SaveData_Campaign_Has (
-                            save_id INTEGER,
+                        CREATE TABLE IF NOT EXISTS SaveData_Campaign_has (
+                            savedata_id INTEGER,
                             campaign_id INTEGER,
-                            PRIMARY KEY(save_id, campaign_id),
-                            FOREIGN KEY(save_id) REFERENCES SaveData(id),
-                            FOREIGN KEY(campaign_id) REFERENCES Campaigns(id)
+                            PRIMARY KEY(savedata_id, campaign_id),
+                            FOREIGN KEY(savedata_id) REFERENCES SaveData(id),
+                            FOREIGN KEY(campaign_id) REFERENCES Campaign(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS Chapters (
+                        CREATE TABLE IF NOT EXISTS Chapter (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             campaign_id INTEGER,
                             sid TEXT,
                             name TEXT,
                             mode TEXT,
                             UNIQUE(campaign_id, sid, mode),
-                            FOREIGN KEY(campaign_id) REFERENCES Campaigns(id)
+                            FOREIGN KEY(campaign_id) REFERENCES Campaign(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS Runs (
+                        CREATE TABLE IF NOT EXISTS Run (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             save_id INTEGER,
                             chapter_id INTEGER,
@@ -88,21 +88,21 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                             strawberries INTEGER,
                             golden INTEGER,
                             FOREIGN KEY(save_id) REFERENCES SaveData(id),
-                            FOREIGN KEY(chapter_id) REFERENCES Chapters(id)
+                            FOREIGN KEY(chapter_id) REFERENCES Chapter(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS RoomDeaths (
+                        CREATE TABLE IF NOT EXISTS RoomDeath (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             run_id INTEGER,
                             room_name TEXT,
                             deaths INTEGER,
-                            FOREIGN KEY(run_id) REFERENCES Runs(id)
+                            FOREIGN KEY(run_id) REFERENCES Run(id)
                         );
                     ";
                     command.ExecuteNonQuery();
 
                     // Create default user
-                    command.CommandText = "INSERT OR IGNORE INTO Users (name) VALUES ('Kristan');";
+                    command.CommandText = "INSERT OR IGNORE INTO User (name) VALUES ('Kristan');";
                     command.ExecuteNonQuery();
                 }
             }
@@ -143,12 +143,12 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         {
             var cmd = conn.CreateCommand();
             cmd.Transaction = trans;
-            cmd.CommandText = "SELECT id FROM Users WHERE name = @name";
+            cmd.CommandText = "SELECT id FROM User WHERE name = @name";
             cmd.Parameters.AddWithValue("@name", name);
             var result = cmd.ExecuteScalar();
             if (result != null) return (long)result;
 
-            cmd.CommandText = "INSERT INTO Users (name) VALUES (@name); SELECT last_insert_rowid();";
+            cmd.CommandText = "INSERT INTO User (name) VALUES (@name); SELECT last_insert_rowid();";
             return (long)cmd.ExecuteScalar();
         }
 
@@ -171,12 +171,12 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         {
             var cmd = conn.CreateCommand();
             cmd.Transaction = trans;
-            cmd.CommandText = "SELECT id FROM Campaigns WHERE name = @name";
+            cmd.CommandText = "SELECT id FROM Campaign WHERE name = @name";
             cmd.Parameters.AddWithValue("@name", name);
             var result = cmd.ExecuteScalar();
             if (result != null) return (long)result;
 
-            cmd.CommandText = "INSERT INTO Campaigns (name) VALUES (@name); SELECT last_insert_rowid();";
+            cmd.CommandText = "INSERT INTO Campaign (name) VALUES (@name); SELECT last_insert_rowid();";
             return (long)cmd.ExecuteScalar();
         }
 
@@ -184,7 +184,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         {
             var cmd = conn.CreateCommand();
             cmd.Transaction = trans;
-            cmd.CommandText = "INSERT OR IGNORE INTO SaveData_Campaign_Has (save_id, campaign_id) VALUES (@sid, @cid)";
+            cmd.CommandText = "INSERT OR IGNORE INTO SaveData_Campaign_has (savedata_id, campaign_id) VALUES (@sid, @cid)";
             cmd.Parameters.AddWithValue("@sid", saveId);
             cmd.Parameters.AddWithValue("@cid", campaignId);
             cmd.ExecuteNonQuery();
@@ -194,14 +194,14 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         {
             var cmd = conn.CreateCommand();
             cmd.Transaction = trans;
-            cmd.CommandText = "SELECT id FROM Chapters WHERE campaign_id = @cid AND sid = @sid AND mode = @mode";
+            cmd.CommandText = "SELECT id FROM Chapter WHERE campaign_id = @cid AND sid = @sid AND mode = @mode";
             cmd.Parameters.AddWithValue("@cid", campaignId);
             cmd.Parameters.AddWithValue("@sid", sid);
             cmd.Parameters.AddWithValue("@mode", mode);
             var result = cmd.ExecuteScalar();
             if (result != null) return (long)result;
 
-            cmd.CommandText = "INSERT INTO Chapters (campaign_id, sid, name, mode) VALUES (@cid, @sid, @name, @mode); SELECT last_insert_rowid();";
+            cmd.CommandText = "INSERT INTO Chapter (campaign_id, sid, name, mode) VALUES (@cid, @sid, @name, @mode); SELECT last_insert_rowid();";
             cmd.Parameters.AddWithValue("@name", name);
             return (long)cmd.ExecuteScalar();
         }
@@ -211,7 +211,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             var cmd = conn.CreateCommand();
             cmd.Transaction = trans;
             cmd.CommandText = @"
-                INSERT INTO Runs (save_id, chapter_id, completion_time, time_ticks, screens, deaths, strawberries, golden)
+                INSERT INTO Run (save_id, chapter_id, completion_time, time_ticks, screens, deaths, strawberries, golden)
                 VALUES (@sid, @chid, @time, @ticks, @screens, @deaths, @strawberries, @golden);
                 SELECT last_insert_rowid();";
             cmd.Parameters.AddWithValue("@sid", saveId);
@@ -231,7 +231,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             {
                 var cmd = conn.CreateCommand();
                 cmd.Transaction = trans;
-                cmd.CommandText = "INSERT INTO RoomDeaths (run_id, room_name, deaths) VALUES (@rid, @room, @deaths)";
+                cmd.CommandText = "INSERT INTO RoomDeath (run_id, room_name, deaths) VALUES (@rid, @room, @deaths)";
                 cmd.Parameters.AddWithValue("@rid", runId);
                 cmd.Parameters.AddWithValue("@room", kvp.Key);
                 cmd.Parameters.AddWithValue("@deaths", kvp.Value);
