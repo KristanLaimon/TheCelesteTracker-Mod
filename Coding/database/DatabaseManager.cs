@@ -34,9 +34,14 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Coding.Database
 
         public static void Init()
         {
+            if (File.Exists(DbPath))
+            {
+                return;
+            }
+
             try
             {
-                // Manual DLL loading for .NET 8 Everest compatibility
+                // ===== Manual DLL loading for .NET 8 Everest compatibility =====
                 if (TheCelesteTracker_ModModule.Instance?.Metadata?.PathDirectory != null)
                 {
                     string modBinPath = Path.Combine(TheCelesteTracker_ModModule.Instance.Metadata.PathDirectory, "bin");
@@ -48,19 +53,10 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Coding.Database
                         Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", $"Manually loaded native SQLite from: {dllPath}");
                     }
                 }
-
-                // Explicitly initialize SQLitePCL
                 SQLitePCL.Batteries_V2.Init();
 
-                string? dir = Path.GetDirectoryName(DbPath);
-                if (dir != null && !Directory.Exists(dir))
-                {
-                    Directory.CreateDirectory(dir);
-                    Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", $"Created directory: {dir}");
-                }
-
+                // ======= Init default database =========
                 Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", $"Initializing database at: {DbPath}");
-
                 using (var connection = new SqliteConnection(ConnectionString))
                 {
                     connection.Open();
@@ -137,264 +133,264 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Coding.Database
             }
         }
 
-        public static long SaveRun(RunStats stats)
-        {
-            try
-            {
-                using (var connection = new SqliteConnection(ConnectionString))
-                {
-                    connection.Open();
-                    using (var transaction = connection.BeginTransaction())
-                    {
-                        long userId = GetOrCreateUser(connection, transaction, "Celeste Climber");
-                        long saveId = GetOrCreateSaveData(connection, transaction, userId, stats.SaveSlot, stats.SaveName);
-                        long campaignId = GetOrCreateCampaign(connection, transaction, stats.CampaignName);
-                        UpdateJunction(connection, transaction, saveId, campaignId);
-                        long chapterId = GetOrCreateChapter(connection, transaction, campaignId, stats.ChapterSID, stats.ChapterName, stats.Mode);
-                        long runId = InsertRun(connection, transaction, saveId, chapterId, stats);
-                        InsertRoomDeaths(connection, transaction, runId, stats.RoomDeaths);
+        //public static long SaveRun(RunStats stats)
+        //{
+        //    try
+        //    {
+        //        using (var connection = new SqliteConnection(ConnectionString))
+        //        {
+        //            connection.Open();
+        //            using (var transaction = connection.BeginTransaction())
+        //            {
+        //                long userId = GetOrCreateUser(connection, transaction, "Celeste Climber");
+        //                long saveId = GetOrCreateSaveData(connection, transaction, userId, stats.SaveSlot, stats.SaveName);
+        //                long campaignId = GetOrCreateCampaign(connection, transaction, stats.CampaignName);
+        //                UpdateJunction(connection, transaction, saveId, campaignId);
+        //                long chapterId = GetOrCreateChapter(connection, transaction, campaignId, stats.ChapterSID, stats.ChapterName, stats.Mode);
+        //                long runId = InsertRun(connection, transaction, saveId, chapterId, stats);
+        //                InsertRoomDeaths(connection, transaction, runId, stats.RoomDeaths);
 
-                        transaction.Commit();
-                        return runId;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log(LogLevel.Error, "TheCelesteTracker_Mod", $"Database Save Error: {ex}");
-                return -1;
-            }
-        }
+        //                transaction.Commit();
+        //                return runId;
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Logger.Log(LogLevel.Error, "TheCelesteTracker_Mod", $"Database Save Error: {ex}");
+        //        return -1;
+        //    }
+        //}
 
-        private static long GetOrCreateUser(SqliteConnection conn, SqliteTransaction trans, string name)
-        {
-            var cmd = conn.CreateCommand();
-            cmd.Transaction = trans;
-            cmd.CommandText = "SELECT id FROM User WHERE name = @name";
-            cmd.Parameters.AddWithValue("@name", name);
-            var result = cmd.ExecuteScalar();
-            if (result != null && result != DBNull.Value) return (long)result;
+        //private static long GetOrCreateUser(SqliteConnection conn, SqliteTransaction trans, string name)
+        //{
+        //    var cmd = conn.CreateCommand();
+        //    cmd.Transaction = trans;
+        //    cmd.CommandText = "SELECT id FROM User WHERE name = @name";
+        //    cmd.Parameters.AddWithValue("@name", name);
+        //    var result = cmd.ExecuteScalar();
+        //    if (result != null && result != DBNull.Value) return (long)result;
 
-            cmd.CommandText = "INSERT INTO User (name) VALUES (@name); SELECT last_insert_rowid();";
-            object? insertResult = cmd.ExecuteScalar();
-            return insertResult is long id ? id : -1;
-        }
+        //    cmd.CommandText = "INSERT INTO User (name) VALUES (@name); SELECT last_insert_rowid();";
+        //    object? insertResult = cmd.ExecuteScalar();
+        //    return insertResult is long id ? id : -1;
+        //}
 
-        private static long GetOrCreateSaveData(SqliteConnection conn, SqliteTransaction trans, long userId, int slot, string name)
-        {
-            var cmd = conn.CreateCommand();
-            cmd.Transaction = trans;
-            cmd.CommandText = "SELECT id FROM SaveData WHERE user_id = @uid AND slot_number = @slot";
-            cmd.Parameters.AddWithValue("@uid", userId);
-            cmd.Parameters.AddWithValue("@slot", slot);
-            var result = cmd.ExecuteScalar();
-            if (result != null && result != DBNull.Value) return (long)result;
+        //private static long GetOrCreateSaveData(SqliteConnection conn, SqliteTransaction trans, long userId, int slot, string name)
+        //{
+        //    var cmd = conn.CreateCommand();
+        //    cmd.Transaction = trans;
+        //    cmd.CommandText = "SELECT id FROM SaveData WHERE user_id = @uid AND slot_number = @slot";
+        //    cmd.Parameters.AddWithValue("@uid", userId);
+        //    cmd.Parameters.AddWithValue("@slot", slot);
+        //    var result = cmd.ExecuteScalar();
+        //    if (result != null && result != DBNull.Value) return (long)result;
 
-            cmd.CommandText = "INSERT INTO SaveData (user_id, slot_number, file_name) VALUES (@uid, @slot, @name); SELECT last_insert_rowid();";
-            cmd.Parameters.AddWithValue("@name", name);
-            object? insertResult = cmd.ExecuteScalar();
-            return insertResult is long id ? id : -1;
-        }
+        //    cmd.CommandText = "INSERT INTO SaveData (user_id, slot_number, file_name) VALUES (@uid, @slot, @name); SELECT last_insert_rowid();";
+        //    cmd.Parameters.AddWithValue("@name", name);
+        //    object? insertResult = cmd.ExecuteScalar();
+        //    return insertResult is long id ? id : -1;
+        //}
 
-        private static long GetOrCreateCampaign(SqliteConnection conn, SqliteTransaction trans, string name)
-        {
-            var cmd = conn.CreateCommand();
-            cmd.Transaction = trans;
-            cmd.CommandText = "SELECT id FROM Campaign WHERE name = @name";
-            cmd.Parameters.AddWithValue("@name", name);
-            var result = cmd.ExecuteScalar();
-            if (result != null && result != DBNull.Value) return (long)result;
+        //private static long GetOrCreateCampaign(SqliteConnection conn, SqliteTransaction trans, string name)
+        //{
+        //    var cmd = conn.CreateCommand();
+        //    cmd.Transaction = trans;
+        //    cmd.CommandText = "SELECT id FROM Campaign WHERE name = @name";
+        //    cmd.Parameters.AddWithValue("@name", name);
+        //    var result = cmd.ExecuteScalar();
+        //    if (result != null && result != DBNull.Value) return (long)result;
 
-            cmd.CommandText = "INSERT INTO Campaign (name) VALUES (@name); SELECT last_insert_rowid();";
-            object? insertResult = cmd.ExecuteScalar();
-            return insertResult is long id ? id : -1;
-        }
+        //    cmd.CommandText = "INSERT INTO Campaign (name) VALUES (@name); SELECT last_insert_rowid();";
+        //    object? insertResult = cmd.ExecuteScalar();
+        //    return insertResult is long id ? id : -1;
+        //}
 
-        private static void UpdateJunction(SqliteConnection conn, SqliteTransaction trans, long saveId, long campaignId)
-        {
-            var cmd = conn.CreateCommand();
-            cmd.Transaction = trans;
-            cmd.CommandText = "INSERT OR IGNORE INTO SaveData_Campaign_has (savedata_id, campaign_id) VALUES (@sid, @cid)";
-            cmd.Parameters.AddWithValue("@sid", saveId);
-            cmd.Parameters.AddWithValue("@cid", campaignId);
-            cmd.ExecuteNonQuery();
-        }
+        //private static void UpdateJunction(SqliteConnection conn, SqliteTransaction trans, long saveId, long campaignId)
+        //{
+        //    var cmd = conn.CreateCommand();
+        //    cmd.Transaction = trans;
+        //    cmd.CommandText = "INSERT OR IGNORE INTO SaveData_Campaign_has (savedata_id, campaign_id) VALUES (@sid, @cid)";
+        //    cmd.Parameters.AddWithValue("@sid", saveId);
+        //    cmd.Parameters.AddWithValue("@cid", campaignId);
+        //    cmd.ExecuteNonQuery();
+        //}
 
-        private static long GetOrCreateChapter(SqliteConnection conn, SqliteTransaction trans, long campaignId, string sid, string name, string mode)
-        {
-            var cmd = conn.CreateCommand();
-            cmd.Transaction = trans;
-            cmd.CommandText = "SELECT id FROM Chapter WHERE campaign_id = @cid AND sid = @sid AND mode = @mode";
-            cmd.Parameters.AddWithValue("@cid", campaignId);
-            cmd.Parameters.AddWithValue("@sid", sid);
-            cmd.Parameters.AddWithValue("@mode", mode);
-            var result = cmd.ExecuteScalar();
-            if (result != null && result != DBNull.Value) return (long)result;
+        //private static long GetOrCreateChapter(SqliteConnection conn, SqliteTransaction trans, long campaignId, string sid, string name, string mode)
+        //{
+        //    var cmd = conn.CreateCommand();
+        //    cmd.Transaction = trans;
+        //    cmd.CommandText = "SELECT id FROM Chapter WHERE campaign_id = @cid AND sid = @sid AND mode = @mode";
+        //    cmd.Parameters.AddWithValue("@cid", campaignId);
+        //    cmd.Parameters.AddWithValue("@sid", sid);
+        //    cmd.Parameters.AddWithValue("@mode", mode);
+        //    var result = cmd.ExecuteScalar();
+        //    if (result != null && result != DBNull.Value) return (long)result;
 
-            cmd.CommandText = "INSERT INTO Chapter (campaign_id, sid, name, mode) VALUES (@cid, @sid, @name, @mode); SELECT last_insert_rowid();";
-            cmd.Parameters.AddWithValue("@name", name ?? (object)DBNull.Value);
-            object? insertResult = cmd.ExecuteScalar();
-            return insertResult is long id ? id : -1;
-        }
+        //    cmd.CommandText = "INSERT INTO Chapter (campaign_id, sid, name, mode) VALUES (@cid, @sid, @name, @mode); SELECT last_insert_rowid();";
+        //    cmd.Parameters.AddWithValue("@name", name ?? (object)DBNull.Value);
+        //    object? insertResult = cmd.ExecuteScalar();
+        //    return insertResult is long id ? id : -1;
+        //}
 
-        private static long InsertRun(SqliteConnection conn, SqliteTransaction trans, long saveId, long chapterId, RunStats stats)
-        {
-            var cmd = conn.CreateCommand();
-            cmd.Transaction = trans;
-            cmd.CommandText = @"
-                INSERT INTO Run (save_id, chapter_id, completion_time, time_ticks, screens, deaths, strawberries, golden)
-                VALUES (@sid, @chid, @time, @ticks, @screens, @deaths, @strawberries, @golden);
-                SELECT last_insert_rowid();";
-            cmd.Parameters.AddWithValue("@sid", saveId);
-            cmd.Parameters.AddWithValue("@chid", chapterId);
-            cmd.Parameters.AddWithValue("@time", (object?)stats.CompletionTime ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ticks", stats.TimeTicks);
-            cmd.Parameters.AddWithValue("@screens", stats.Screens);
-            cmd.Parameters.AddWithValue("@deaths", stats.Deaths);
-            cmd.Parameters.AddWithValue("@strawberries", stats.Strawberries);
-            cmd.Parameters.AddWithValue("@golden", stats.Golden ? 1 : 0);
-            object? insertResult = cmd.ExecuteScalar();
-            return insertResult is long id ? id : -1;
-        }
+        //private static long InsertRun(SqliteConnection conn, SqliteTransaction trans, long saveId, long chapterId, RunStats stats)
+        //{
+        //    var cmd = conn.CreateCommand();
+        //    cmd.Transaction = trans;
+        //    cmd.CommandText = @"
+        //        INSERT INTO Run (save_id, chapter_id, completion_time, time_ticks, screens, deaths, strawberries, golden)
+        //        VALUES (@sid, @chid, @time, @ticks, @screens, @deaths, @strawberries, @golden);
+        //        SELECT last_insert_rowid();";
+        //    cmd.Parameters.AddWithValue("@sid", saveId);
+        //    cmd.Parameters.AddWithValue("@chid", chapterId);
+        //    cmd.Parameters.AddWithValue("@time", (object?)stats.CompletionTime ?? DBNull.Value);
+        //    cmd.Parameters.AddWithValue("@ticks", stats.TimeTicks);
+        //    cmd.Parameters.AddWithValue("@screens", stats.Screens);
+        //    cmd.Parameters.AddWithValue("@deaths", stats.Deaths);
+        //    cmd.Parameters.AddWithValue("@strawberries", stats.Strawberries);
+        //    cmd.Parameters.AddWithValue("@golden", stats.Golden ? 1 : 0);
+        //    object? insertResult = cmd.ExecuteScalar();
+        //    return insertResult is long id ? id : -1;
+        //}
 
-        public static void UpdateRunStats(long runId, RunStats stats)
-        {
-            try
-            {
-                using (var connection = new SqliteConnection(ConnectionString))
-                {
-                    connection.Open();
-                    using (var transaction = connection.BeginTransaction())
-                    {
-                        var cmd = connection.CreateCommand();
-                        cmd.Transaction = transaction;
-                        cmd.CommandText = @"
-                            UPDATE Run 
-                            SET completion_time = @time, 
-                                time_ticks = @ticks, 
-                                screens = @screens, 
-                                deaths = @deaths, 
-                                strawberries = @strawberries, 
-                                golden = @golden
-                            WHERE id = @rid";
-                        cmd.Parameters.AddWithValue("@rid", runId);
-                        cmd.Parameters.AddWithValue("@time", (object?)stats.CompletionTime ?? DBNull.Value);
-                        cmd.Parameters.AddWithValue("@ticks", stats.TimeTicks);
-                        cmd.Parameters.AddWithValue("@screens", stats.Screens);
-                        cmd.Parameters.AddWithValue("@deaths", stats.Deaths);
-                        cmd.Parameters.AddWithValue("@strawberries", stats.Strawberries);
-                        cmd.Parameters.AddWithValue("@golden", stats.Golden ? 1 : 0);
-                        cmd.ExecuteNonQuery();
+        //public static void UpdateRunStats(long runId, RunStats stats)
+        //{
+        //    try
+        //    {
+        //        using (var connection = new SqliteConnection(ConnectionString))
+        //        {
+        //            connection.Open();
+        //            using (var transaction = connection.BeginTransaction())
+        //            {
+        //                var cmd = connection.CreateCommand();
+        //                cmd.Transaction = transaction;
+        //                cmd.CommandText = @"
+        //                    UPDATE Run 
+        //                    SET completion_time = @time, 
+        //                        time_ticks = @ticks, 
+        //                        screens = @screens, 
+        //                        deaths = @deaths, 
+        //                        strawberries = @strawberries, 
+        //                        golden = @golden
+        //                    WHERE id = @rid";
+        //                cmd.Parameters.AddWithValue("@rid", runId);
+        //                cmd.Parameters.AddWithValue("@time", (object?)stats.CompletionTime ?? DBNull.Value);
+        //                cmd.Parameters.AddWithValue("@ticks", stats.TimeTicks);
+        //                cmd.Parameters.AddWithValue("@screens", stats.Screens);
+        //                cmd.Parameters.AddWithValue("@deaths", stats.Deaths);
+        //                cmd.Parameters.AddWithValue("@strawberries", stats.Strawberries);
+        //                cmd.Parameters.AddWithValue("@golden", stats.Golden ? 1 : 0);
+        //                cmd.ExecuteNonQuery();
 
-                        UpdateRoomDeaths(connection, transaction, runId, stats.RoomDeaths);
+        //                UpdateRoomDeaths(connection, transaction, runId, stats.RoomDeaths);
 
-                        transaction.Commit();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log(LogLevel.Error, "TheCelesteTracker_Mod", $"Database Update Error: {ex}");
-            }
-        }
+        //                transaction.Commit();
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Logger.Log(LogLevel.Error, "TheCelesteTracker_Mod", $"Database Update Error: {ex}");
+        //    }
+        //}
 
-        public static bool IsSaveSlotPopulated(int slot)
-        {
-            try
-            {
-                using (var connection = new SqliteConnection(ConnectionString))
-                {
-                    connection.Open();
-                    var cmd = connection.CreateCommand();
-                    cmd.CommandText = "SELECT COUNT(*) FROM SaveData WHERE slot_number = @slot";
-                    cmd.Parameters.AddWithValue("@slot", slot);
-                    var result = cmd.ExecuteScalar();
-                    return result != null && (long)result > 0;
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log(LogLevel.Error, "TheCelesteTracker_Mod", $"Database Check Error: {ex}");
-                return false;
-            }
-        }
+        //public static bool IsSaveSlotPopulated(int slot)
+        //{
+        //    try
+        //    {
+        //        using (var connection = new SqliteConnection(ConnectionString))
+        //        {
+        //            connection.Open();
+        //            var cmd = connection.CreateCommand();
+        //            cmd.CommandText = "SELECT COUNT(*) FROM SaveData WHERE slot_number = @slot";
+        //            cmd.Parameters.AddWithValue("@slot", slot);
+        //            var result = cmd.ExecuteScalar();
+        //            return result != null && (long)result > 0;
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Logger.Log(LogLevel.Error, "TheCelesteTracker_Mod", $"Database Check Error: {ex}");
+        //        return false;
+        //    }
+        //}
 
-        public static void PopulateFromVanilla(SaveData vanillaData)
-        {
-            try
-            {
-                using (var connection = new SqliteConnection(ConnectionString))
-                {
-                    connection.Open();
-                    using (var transaction = connection.BeginTransaction())
-                    {
-                        long userId = GetOrCreateUser(connection, transaction, "Celeste Climber");
-                        long saveId = GetOrCreateSaveData(connection, transaction, userId, vanillaData.FileSlot, vanillaData.Name);
+        //public static void PopulateFromVanilla(SaveData vanillaData)
+        //{
+        //    try
+        //    {
+        //        using (var connection = new SqliteConnection(ConnectionString))
+        //        {
+        //            connection.Open();
+        //            using (var transaction = connection.BeginTransaction())
+        //            {
+        //                long userId = GetOrCreateUser(connection, transaction, "Celeste Climber");
+        //                long saveId = GetOrCreateSaveData(connection, transaction, userId, vanillaData.FileSlot, vanillaData.Name);
 
-                        foreach (AreaStats area in vanillaData.Areas)
-                        {
-                            string campaignName = area.LevelSet;
-                            long campaignId = GetOrCreateCampaign(connection, transaction, campaignName);
-                            UpdateJunction(connection, transaction, saveId, campaignId);
+        //                foreach (AreaStats area in vanillaData.Areas)
+        //                {
+        //                    string campaignName = area.LevelSet;
+        //                    long campaignId = GetOrCreateCampaign(connection, transaction, campaignName);
+        //                    UpdateJunction(connection, transaction, saveId, campaignId);
 
-                            for (int i = 0; i < area.Modes.Length; i++)
-                            {
-                                AreaModeStats modeStats = area.Modes[i];
-                                if (modeStats.TimePlayed <= 0 && modeStats.Deaths <= 0 && modeStats.TotalStrawberries <= 0)
-                                    continue;
+        //                    for (int i = 0; i < area.Modes.Length; i++)
+        //                    {
+        //                        AreaModeStats modeStats = area.Modes[i];
+        //                        if (modeStats.TimePlayed <= 0 && modeStats.Deaths <= 0 && modeStats.TotalStrawberries <= 0)
+        //                            continue;
 
-                                string modeName = ((AreaMode)i).ToString();
-                                long chapterId = GetOrCreateChapter(connection, transaction, campaignId, area.SID, Dialog.Clean(AreaData.Get(area.ID).Name), modeName);
+        //                        string modeName = ((AreaMode)i).ToString();
+        //                        long chapterId = GetOrCreateChapter(connection, transaction, campaignId, area.SID, Dialog.Clean(AreaData.Get(area.ID).Name), modeName);
 
-                                // Create a historical run for the total stats
-                                RunStats histStats = new RunStats
-                                {
-                                    CompletionTime = "Historical",
-                                    TimeTicks = modeStats.TimePlayed,
-                                    Screens = 0,
-                                    Deaths = modeStats.Deaths,
-                                    Strawberries = modeStats.TotalStrawberries,
-                                    Golden = modeStats.Completed // Simple heuristic: if mode is completed, mark as golden or similar status if needed. 
-                                };
+        //                        // Create a historical run for the total stats
+        //                        RunStats histStats = new RunStats
+        //                        {
+        //                            CompletionTime = "Historical",
+        //                            TimeTicks = modeStats.TimePlayed,
+        //                            Screens = 0,
+        //                            Deaths = modeStats.Deaths,
+        //                            Strawberries = modeStats.TotalStrawberries,
+        //                            Golden = modeStats.Completed // Simple heuristic: if mode is completed, mark as golden or similar status if needed. 
+        //                        };
 
-                                InsertRun(connection, transaction, saveId, chapterId, histStats);
-                            }
-                        }
+        //                        InsertRun(connection, transaction, saveId, chapterId, histStats);
+        //                    }
+        //                }
 
-                        transaction.Commit();
-                        Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", $"Populated database from vanilla save slot {vanillaData.FileSlot}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log(LogLevel.Error, "TheCelesteTracker_Mod", $"Database Population Error: {ex}");
-            }
-        }
+        //                transaction.Commit();
+        //                Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", $"Populated database from vanilla save slot {vanillaData.FileSlot}");
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Logger.Log(LogLevel.Error, "TheCelesteTracker_Mod", $"Database Population Error: {ex}");
+        //    }
+        //}
 
-        private static void UpdateRoomDeaths(SqliteConnection conn, SqliteTransaction trans, long runId, Dictionary<string, int> roomDeaths)
-        {
-            var deleteCmd = conn.CreateCommand();
-            deleteCmd.Transaction = trans;
-            deleteCmd.CommandText = "DELETE FROM RoomDeath WHERE run_id = @rid";
-            deleteCmd.Parameters.AddWithValue("@rid", runId);
-            deleteCmd.ExecuteNonQuery();
+        //private static void UpdateRoomDeaths(SqliteConnection conn, SqliteTransaction trans, long runId, Dictionary<string, int> roomDeaths)
+        //{
+        //    var deleteCmd = conn.CreateCommand();
+        //    deleteCmd.Transaction = trans;
+        //    deleteCmd.CommandText = "DELETE FROM RoomDeath WHERE run_id = @rid";
+        //    deleteCmd.Parameters.AddWithValue("@rid", runId);
+        //    deleteCmd.ExecuteNonQuery();
 
-            InsertRoomDeaths(conn, trans, runId, roomDeaths);
-        }
+        //    InsertRoomDeaths(conn, trans, runId, roomDeaths);
+        //}
 
-        private static void InsertRoomDeaths(SqliteConnection conn, SqliteTransaction trans, long runId, Dictionary<string, int> roomDeaths)
-        {
-            foreach (var kvp in roomDeaths)
-            {
-                var cmd = conn.CreateCommand();
-                cmd.Transaction = trans;
-                cmd.CommandText = "INSERT INTO RoomDeath (run_id, room_name, deaths) VALUES (@rid, @room, @deaths)";
-                cmd.Parameters.AddWithValue("@rid", runId);
-                cmd.Parameters.AddWithValue("@room", kvp.Key ?? (object)DBNull.Value);
-                cmd.Parameters.AddWithValue("@deaths", kvp.Value);
-                cmd.ExecuteNonQuery();
-            }
-        }
+        //private static void InsertRoomDeaths(SqliteConnection conn, SqliteTransaction trans, long runId, Dictionary<string, int> roomDeaths)
+        //{
+        //    foreach (var kvp in roomDeaths)
+        //    {
+        //        var cmd = conn.CreateCommand();
+        //        cmd.Transaction = trans;
+        //        cmd.CommandText = "INSERT INTO RoomDeath (run_id, room_name, deaths) VALUES (@rid, @room, @deaths)";
+        //        cmd.Parameters.AddWithValue("@rid", runId);
+        //        cmd.Parameters.AddWithValue("@room", kvp.Key ?? (object)DBNull.Value);
+        //        cmd.Parameters.AddWithValue("@deaths", kvp.Value);
+        //        cmd.ExecuteNonQuery();
+        //    }
+        //}
     }
 }

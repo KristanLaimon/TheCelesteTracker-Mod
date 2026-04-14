@@ -10,4 +10,5 @@ TheCelesteTracker_ModModule.cs
 TheCelesteTracker_ModModuleSaveData.cs
 TheCelesteTracker_ModModuleSession.cs
 TheCelesteTracker_ModModuleSettings.cs
+DebugLogger.cs
 TheCelesteTracker_Mod.zip

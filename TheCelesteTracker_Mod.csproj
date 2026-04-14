@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
@@ -29,6 +29,9 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Reference Include="Celeste">
+        <HintPath>lib-stripped\Celeste.dll</HintPath>
+      </Reference>
       <Reference Include="FNA">
         <HintPath>lib-stripped\FNA.dll</HintPath>
       </Reference>
@@ -41,10 +44,10 @@
       <None Update="everest.yaml">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
-      <None Update="Coding\lib-stripped\FNA.dll">
+      <None Update="lib-stripped\FNA.dll">
         <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </None>
-      <None Update="Coding\lib-stripped\MMHOOK_Celeste.dll">
+      <None Update="lib-stripped\MMHOOK_Celeste.dll">
         <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </None>
     </ItemGroup>
