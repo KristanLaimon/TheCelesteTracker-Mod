@@ -4,7 +4,9 @@ using MonoMod.ModInterop;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Celeste;
+using Celeste.Mod.TheCelesteTracker_Mod.Coding.services;
+using Celeste.Mod.TheCelesteTracker_Mod.Coding.Database;
+
 
 #nullable enable
 namespace Celeste.Mod.TheCelesteTracker_Mod

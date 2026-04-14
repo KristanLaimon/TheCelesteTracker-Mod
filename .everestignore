@@ -4,4 +4,10 @@
 # to the ZippedFiles tag in the .csproj file, or the artifact paths in the
 # Github workflow file if you're using GitHub actions for publishing.
 Source/
+Coding/
+TheCelesteTracker_ModExports.cs
+TheCelesteTracker_ModModule.cs
+TheCelesteTracker_ModModuleSaveData.cs
+TheCelesteTracker_ModModuleSession.cs
+TheCelesteTracker_ModModuleSettings.cs
 TheCelesteTracker_Mod.zip

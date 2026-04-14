@@ -41,10 +41,10 @@
       <None Update="everest.yaml">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
-      <None Update="lib-stripped\FNA.dll">
+      <None Update="Coding\lib-stripped\FNA.dll">
         <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </None>
-      <None Update="lib-stripped\MMHOOK_Celeste.dll">
+      <None Update="Coding\lib-stripped\MMHOOK_Celeste.dll">
         <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </None>
     </ItemGroup>
@@ -55,14 +55,9 @@
             <BuildArtifacts Include="$(OutputPath)\*.pdb" Exclude="$(OutputPath)\Celeste.pdb;$(OutputPath)\FNA.pdb;$(OutputPath)\MMHOOK_Celeste.pdb;$(OutputPath)\Newtonsoft.Json.pdb;$(OutputPath)\MonoMod.*.pdb;$(OutputPath)\Mono.Cecil*.pdb;$(OutputPath)\AsmResolver*.pdb;$(OutputPath)\Microsoft.Build*.pdb" />
             <NativeSqlite Include="$(OutputPath)\runtimes\win-x64\native\e_sqlite3.dll" />
         </ItemGroup>
-        <Copy SourceFiles="@(BuildArtifacts)" DestinationFolder="..\..\bin" />
-        <Copy SourceFiles="@(NativeSqlite)" DestinationFolder="..\..\bin" />
-        <Copy SourceFiles="..\everest.yaml" DestinationFolder="..\.." />
-        <ItemGroup>
-            <MapsFiles Include="Maps\**\*.*" />
-        </ItemGroup>
-        <Copy SourceFiles="@(MapsFiles)" DestinationFolder="..\..\Maps\%(RecursiveDir)" />
-    </Target>
+        <Copy SourceFiles="@(BuildArtifacts)" DestinationFolder="./bin" />
+        <Copy SourceFiles="@(NativeSqlite)" DestinationFolder="./bin" />
+	</Target>
 
     <Target Name="PackageMod" AfterTargets="CopyFiles" Inputs="$(ZippedFiles)" Outputs="..\TheCelesteTracker_Mod.zip" Condition="'$(Configuration)' == 'Release'">
         <ItemGroup>

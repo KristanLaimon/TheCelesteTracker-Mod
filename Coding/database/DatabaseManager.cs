@@ -5,7 +5,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 
 #nullable enable
-namespace Celeste.Mod.TheCelesteTracker_Mod
+namespace Celeste.Mod.TheCelesteTracker_Mod.Coding.Database
 {
     /// <summary>
     /// Data Transfer Object for run statistics to avoid leaking internal mod logic or SQL types.

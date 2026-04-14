@@ -1,7 +1,7 @@
 using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 
-namespace Celeste.Mod.TheCelesteTracker_Mod.Entities
+namespace Celeste.Mod.TheCelesteTracker_Mod.Coding.Entities
 {
     [CustomEntity("TheCelesteTracker_Mod/SampleActor")]
     public class SampleActor : Actor

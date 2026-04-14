@@ -8,9 +8,10 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Linq;
+using Celeste.Mod.TheCelesteTracker_Mod.Coding.Database;
 
 #nullable enable
-namespace Celeste.Mod.TheCelesteTracker_Mod
+namespace Celeste.Mod.TheCelesteTracker_Mod.Coding.services
 {
     public static class TrackerWebSocketServer
     {
