@@ -1,14 +1,12 @@
+using Newtonsoft.Json;
 using System;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using System.Collections.Generic;
-using System.Linq;
-using Celeste.Mod.TheCelesteTracker_Mod.Coding.Database;
 
 #nullable enable
 namespace Celeste.Mod.TheCelesteTracker_Mod.Coding.services
@@ -89,11 +87,11 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Coding.services
                             _clients.Add(wsContext.WebSocket);
                         }
                         Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", "New WebSocket client connected.");
-                        
+
                         // Send DB location and versions immediately
-                        _ = SendToClient(wsContext.WebSocket, new { 
-                            Type = "DatabaseLocation", 
-                            Path = DatabaseManager.DbPath,
+                        _ = SendToClient(wsContext.WebSocket, new
+                        {
+                            Type = "DatabaseLocation",
                             EverestVersion = Everest.Version.ToString(),
                             ModVersion = TheCelesteTracker_ModModule.Instance.Metadata.Version.ToString()
                         });

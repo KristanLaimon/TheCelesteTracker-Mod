@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.4.11626.88 stable
+VisualStudioVersion = 18.4.11626.88
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TheCelesteTracker_Mod", "TheCelesteTracker_Mod.csproj", "{472281A7-9373-412A-8E8E-5B603857A9D6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TheCelesteTracker_ManualTesting", "..\TheCelesteTracker_ManualTesting\TheCelesteTracker_ManualTesting.csproj", "{38424F36-AF7F-4C10-9295-D88118451907}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TheCelesteTracker_Database", "..\TheCelesteTracker_Database\TheCelesteTracker_Database.csproj", "{67DE4F92-A8D3-5003-1774-803E662460B0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{472281A7-9373-412A-8E8E-5B603857A9D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{472281A7-9373-412A-8E8E-5B603857A9D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{472281A7-9373-412A-8E8E-5B603857A9D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38424F36-AF7F-4C10-9295-D88118451907}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38424F36-AF7F-4C10-9295-D88118451907}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38424F36-AF7F-4C10-9295-D88118451907}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38424F36-AF7F-4C10-9295-D88118451907}.Release|Any CPU.Build.0 = Release|Any CPU
+		{67DE4F92-A8D3-5003-1774-803E662460B0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{67DE4F92-A8D3-5003-1774-803E662460B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{67DE4F92-A8D3-5003-1774-803E662460B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{67DE4F92-A8D3-5003-1774-803E662460B0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

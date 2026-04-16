@@ -1,91 +1,85 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<ModDeployDir Condition="$([MSBuild]::IsOSPlatform('Windows'))">C:\Program Files (x86)\Steam\steamapps\common\Celeste\Mods\TheCelesteTracker</ModDeployDir>
+		<ModDeployDir Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(HOME)/.local/share/Steam/steamapps/common/Celeste/Mods/TheCelesteTracker</ModDeployDir>
+		<ModDeployDir Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(HOME)/Library/Application Support/Steam/steamapps/common/Celeste/Mods/TheCelesteTracker</ModDeployDir>
+		<ModDeployDir Condition="'$(CelesteModsPath)' != ''">$(CelesteModsPath)\TheCelesteTracker</ModDeployDir>
 
-    <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
-        <AssemblyName>TheCelesteTracker_Mod</AssemblyName>
-        <RootNamespace>Celeste.Mod.TheCelesteTracker_Mod</RootNamespace>
-        <LangVersion>latest</LangVersion>
-        <CelestePrefix Condition="'$(CelestePrefix)' == '' And Exists('..\..\..\Celeste.dll')">..\..\..</CelestePrefix>
-        <CelestePrefix Condition="'$(CelestePrefix)' == ''">lib-stripped</CelestePrefix>
-        <ZippedFiles>..\everest.yaml;..\bin\**\*.*;..\Audio\**\*.*;..\Dialog\**\*.*;..\Graphics\**\*.*;..\Ahorn\**\*.*;..\Loenn\**\*.*</ZippedFiles>
-        <Configurations>Debug;Release;Debug (To Zip)</Configurations>
-        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    </PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<AssemblyName>TheCelesteTracker_Mod</AssemblyName>
+		<RootNamespace>Celeste.Mod.TheCelesteTracker_Mod</RootNamespace>
+		<LangVersion>latest</LangVersion>
+		<CelestePrefix Condition="'$(CelestePrefix)' == '' And Exists('lib-stripped\Celeste.dll')">lib-stripped</CelestePrefix>
+		<CelestePrefix Condition="'$(CelestePrefix)' == ''">lib-stripped</CelestePrefix>
 
-    <!--Disable "Copy Local" for all references-->
-    <ItemDefinitionGroup>
-    </ItemDefinitionGroup>
+		<ZippedFiles>..\everest.yaml;$(ModDeployDir)\bin\**\*.*;..\Audio\**\*.*;..\Dialog\**\*.*;..\Graphics\**\*.*;..\Ahorn\**\*.*;..\Loenn\**\*.*</ZippedFiles>
+		<Configurations>Debug;Release;Debug (To Zip)</Configurations>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+	</PropertyGroup>
 
-    <ItemGroup>
-        <PackageReference Include="MonoMod.RuntimeDetour" Version="25.3.1" PrivateAssets="all" />
-        <PackageReference Include="MonoMod.Patcher" Version="25.0.0-prerelease.2" PrivateAssets="all" />
-        <PackageReference Include="CelesteAnalyzer" Version="*" PrivateAssets="all" />
-    </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="MonoMod.RuntimeDetour" Version="25.3.1" PrivateAssets="all" />
+		<PackageReference Include="MonoMod.Patcher" Version="25.0.0-prerelease.2" PrivateAssets="all" />
+		<PackageReference Include="CelesteAnalyzer" Version="*" PrivateAssets="all" />
+		<PackageReference Include="CelesteMod.Publicizer" Version="*" CelesteAssembly="$(CelestePrefix)\Celeste.dll" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" PrivateAssets="all" />
+	</ItemGroup>
 
-    <ItemGroup>
-        <PackageReference Include="CelesteMod.Publicizer" Version="*" CelesteAssembly="$(CelestePrefix)\Celeste.dll" PrivateAssets="all" />
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.4" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.4" />
-    </ItemGroup>
+	<ItemGroup>
+		<Reference Include="FNA">
+			<HintPath>lib-stripped\FNA.dll</HintPath>
+		</Reference>
+		<Reference Include="MMHOOK_Celeste">
+			<HintPath>lib-stripped\MMHOOK_Celeste.dll</HintPath>
+		</Reference>
+	</ItemGroup>
 
-    <ItemGroup>
-      <Reference Include="Celeste">
-        <HintPath>lib-stripped\Celeste.dll</HintPath>
-      </Reference>
-      <Reference Include="FNA">
-        <HintPath>lib-stripped\FNA.dll</HintPath>
-      </Reference>
-      <Reference Include="MMHOOK_Celeste">
-        <HintPath>lib-stripped\MMHOOK_Celeste.dll</HintPath>
-      </Reference>
-    </ItemGroup>
+	<ItemGroup>
+		<None Update="everest.yaml">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="lib-stripped\FNA.dll">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<None Update="lib-stripped\MMHOOK_Celeste.dll">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
 
-    <ItemGroup>
-      <None Update="everest.yaml">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </None>
-      <None Update="lib-stripped\FNA.dll">
-        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-      </None>
-      <None Update="lib-stripped\MMHOOK_Celeste.dll">
-        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-      </None>
-    </ItemGroup>
+	<Target Name="CopyFiles" AfterTargets="Build">
+		<ItemGroup>
+			<BuildArtifacts Include="$(OutputPath)\*.dll" Exclude="$(OutputPath)\Celeste.dll;$(OutputPath)\FNA.dll;$(OutputPath)\MMHOOK_Celeste.dll;$(OutputPath)\Newtonsoft.Json.dll;$(OutputPath)\MonoMod.*.dll;$(OutputPath)\Mono.Cecil*.dll;$(OutputPath)\AsmResolver*.dll;$(OutputPath)\Microsoft.Build*.dll" />
+			<BuildArtifacts Include="$(OutputPath)\*.pdb" Exclude="$(OutputPath)\Celeste.pdb;$(OutputPath)\FNA.pdb;$(OutputPath)\MMHOOK_Celeste.pdb;$(OutputPath)\Newtonsoft.Json.pdb;$(OutputPath)\MonoMod.*.pdb;$(OutputPath)\Mono.Cecil*.pdb;$(OutputPath)\AsmResolver*.pdb;$(OutputPath)\Microsoft.Build*.pdb" />
+		</ItemGroup>
 
-    <Target Name="CopyFiles" AfterTargets="Build">
-        <ItemGroup>
-            <BuildArtifacts Include="$(OutputPath)\*.dll" Exclude="$(OutputPath)\Celeste.dll;$(OutputPath)\FNA.dll;$(OutputPath)\MMHOOK_Celeste.dll;$(OutputPath)\Newtonsoft.Json.dll;$(OutputPath)\MonoMod.*.dll;$(OutputPath)\Mono.Cecil*.dll;$(OutputPath)\AsmResolver*.dll;$(OutputPath)\Microsoft.Build*.dll" />
-            <BuildArtifacts Include="$(OutputPath)\*.pdb" Exclude="$(OutputPath)\Celeste.pdb;$(OutputPath)\FNA.pdb;$(OutputPath)\MMHOOK_Celeste.pdb;$(OutputPath)\Newtonsoft.Json.pdb;$(OutputPath)\MonoMod.*.pdb;$(OutputPath)\Mono.Cecil*.pdb;$(OutputPath)\AsmResolver*.pdb;$(OutputPath)\Microsoft.Build*.pdb" />
-            <NativeSqlite Include="$(OutputPath)\runtimes\win-x64\native\e_sqlite3.dll" />
-        </ItemGroup>
-        <Copy SourceFiles="@(BuildArtifacts)" DestinationFolder="./bin" />
-        <Copy SourceFiles="@(NativeSqlite)" DestinationFolder="./bin" />
+		<Copy SourceFiles="@(BuildArtifacts)" DestinationFolder="$(ModDeployDir)\bin" />
+		<Copy SourceFiles="everest.yaml" DestinationFolder="$(ModDeployDir)" SkipUnchangedFiles="true" />
 	</Target>
 
-    <Target Name="PackageMod" AfterTargets="CopyFiles" Inputs="$(ZippedFiles)" Outputs="..\TheCelesteTracker_Mod.zip" Condition="'$(Configuration)' == 'Release'">
-        <ItemGroup>
-            <FilesToPackage Include="$(ZippedFiles)" />
-        </ItemGroup>
-        <PackageMod Files="@(FilesToPackage)" OutputPath="..\TheCelesteTracker_Mod.zip" />
-    </Target>
-    
-    <PropertyGroup>
-        <PathMap>$(MSBuildProjectDirectory)=TheCelesteTracker_Mod/</PathMap>
-    </PropertyGroup>
+	<Target Name="PackageMod" AfterTargets="CopyFiles" Inputs="$(ZippedFiles)" Outputs="$(ModDeployDir)\TheCelesteTracker_Mod.zip" Condition="'$(Configuration)' == 'Release'">
+		<ItemGroup>
+			<FilesToPackage Include="$(ZippedFiles)" />
+		</ItemGroup>
+		<PackageMod Files="@(FilesToPackage)" OutputPath="$(ModDeployDir)\TheCelesteTracker_Mod.zip" ModDeployDir="$(ModDeployDir)" />
+	</Target>
 
-    <!-- Inline task used to create a .zip for the mod -->
-    <UsingTask TaskName="PackageMod" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
-        <ParameterGroup>
-            <Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
-            <OutputPath ParameterType="System.String" Required="true" />
-        </ParameterGroup>
-        <Task>
-            <Using Namespace="System.IO" />
-            <Using Namespace="System.IO.Compression" />
-            <Code Type="Fragment" Language="cs">
-            <![CDATA[
-                var projectDir = Path.Combine(@"$(ProjectDir)", ".."); // Go one level up, since we're inside the 'Source' directory
-                projectDir = Uri.UnescapeDataString(projectDir);
+	<PropertyGroup>
+		<PathMap>$(MSBuildProjectDirectory)=TheCelesteTracker_Mod/</PathMap>
+	</PropertyGroup>
+
+	<UsingTask TaskName="PackageMod" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+		<ParameterGroup>
+			<Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+			<OutputPath ParameterType="System.String" Required="true" />
+			<ModDeployDir ParameterType="System.String" Required="true" />
+		</ParameterGroup>
+		<Task>
+			<Using Namespace="System.IO" />
+			<Using Namespace="System.IO.Compression" />
+			<Code Type="Fragment" Language="cs">
+				<![CDATA[
+                var projectDir = Path.GetFullPath(Path.Combine(@"$(ProjectDir)", "..")); 
+                var deployDirFullPath = Path.GetFullPath(ModDeployDir);
             
                 if (File.Exists(OutputPath))
                     File.Delete(OutputPath);
@@ -94,8 +88,17 @@
                 {
                     foreach (var file in Files)
                     {
-                        string filePath = file.GetMetadata("FullPath");
-                        string entryName = GetRelativePath(projectDir, filePath);
+                        string filePath = Path.GetFullPath(file.GetMetadata("FullPath"));
+                        string entryName;
+                        
+                        if (filePath.StartsWith(deployDirFullPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            entryName = filePath.Substring(deployDirFullPath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        }
+                        else
+                        {
+                            entryName = GetRelativePath(projectDir, filePath);
+                        }
                         
                         zip.CreateEntryFromFile(filePath, entryName);
                     }
@@ -103,27 +106,15 @@
     
                 string GetRelativePath(string fromPath, string toPath)
                 {
-                    if (string.IsNullOrEmpty(fromPath)) throw new ArgumentNullException(nameof(fromPath));
-                    if (string.IsNullOrEmpty(toPath))   throw new ArgumentNullException(nameof(toPath));
-                
                     Uri fromUri = new Uri(fromPath);
                     Uri toUri = new Uri(toPath);
-                
-                    if (fromUri.Scheme != toUri.Scheme) { return toPath; } // path can't be made relative.
-                
+                    if (fromUri.Scheme != toUri.Scheme) { return toPath; } 
                     Uri relativeUri = fromUri.MakeRelativeUri(toUri);
                     string relativePath = Uri.UnescapeDataString(relativeUri.ToString());
-                
-                    if (toUri.Scheme.Equals("file", StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        relativePath = relativePath.Replace(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                    }
-                
-                    return relativePath;
+                    return relativePath.Replace(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 }
             ]]>
-            </Code>
-        </Task>
-    </UsingTask>
-
+			</Code>
+		</Task>
+	</UsingTask>
 </Project>
