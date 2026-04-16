@@ -1,0 +1,120 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<ModDeployDir Condition="$([MSBuild]::IsOSPlatform('Windows'))">C:\Program Files (x86)\Steam\steamapps\common\Celeste\Mods\TheCelesteTracker</ModDeployDir>
+		<ModDeployDir Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(HOME)/.local/share/Steam/steamapps/common/Celeste/Mods/TheCelesteTracker</ModDeployDir>
+		<ModDeployDir Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(HOME)/Library/Application Support/Steam/steamapps/common/Celeste/Mods/TheCelesteTracker</ModDeployDir>
+		<ModDeployDir Condition="'$(CelesteModsPath)' != ''">$(CelesteModsPath)\TheCelesteTracker</ModDeployDir>
+
+		<TargetFramework>net8.0</TargetFramework>
+		<AssemblyName>TheCelesteTracker_Mod</AssemblyName>
+		<RootNamespace>Celeste.Mod.TheCelesteTracker_Mod</RootNamespace>
+		<LangVersion>latest</LangVersion>
+		<CelestePrefix Condition="'$(CelestePrefix)' == '' And Exists('lib-stripped\Celeste.dll')">lib-stripped</CelestePrefix>
+		<CelestePrefix Condition="'$(CelestePrefix)' == ''">lib-stripped</CelestePrefix>
+
+		<ZippedFiles>..\everest.yaml;$(ModDeployDir)\bin\**\*.*;..\Audio\**\*.*;..\Dialog\**\*.*;..\Graphics\**\*.*;..\Ahorn\**\*.*;..\Loenn\**\*.*</ZippedFiles>
+		<Configurations>Debug;Release;Debug (To Zip)</Configurations>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="MonoMod.RuntimeDetour" Version="25.3.1" PrivateAssets="all" />
+		<PackageReference Include="MonoMod.Patcher" Version="25.0.0-prerelease.2" PrivateAssets="all" />
+		<PackageReference Include="CelesteAnalyzer" Version="*" PrivateAssets="all" />
+		<PackageReference Include="CelesteMod.Publicizer" Version="*" CelesteAssembly="$(CelestePrefix)\Celeste.dll" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" PrivateAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Include="FNA">
+			<HintPath>lib-stripped\FNA.dll</HintPath>
+		</Reference>
+		<Reference Include="MMHOOK_Celeste">
+			<HintPath>lib-stripped\MMHOOK_Celeste.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="everest.yaml">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="lib-stripped\FNA.dll">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+		<None Update="lib-stripped\MMHOOK_Celeste.dll">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<Target Name="CopyFiles" AfterTargets="Build">
+		<ItemGroup>
+			<BuildArtifacts Include="$(OutputPath)\*.dll" Exclude="$(OutputPath)\Celeste.dll;$(OutputPath)\FNA.dll;$(OutputPath)\MMHOOK_Celeste.dll;$(OutputPath)\Newtonsoft.Json.dll;$(OutputPath)\MonoMod.*.dll;$(OutputPath)\Mono.Cecil*.dll;$(OutputPath)\AsmResolver*.dll;$(OutputPath)\Microsoft.Build*.dll" />
+			<BuildArtifacts Include="$(OutputPath)\*.pdb" Exclude="$(OutputPath)\Celeste.pdb;$(OutputPath)\FNA.pdb;$(OutputPath)\MMHOOK_Celeste.pdb;$(OutputPath)\Newtonsoft.Json.pdb;$(OutputPath)\MonoMod.*.pdb;$(OutputPath)\Mono.Cecil*.pdb;$(OutputPath)\AsmResolver*.pdb;$(OutputPath)\Microsoft.Build*.pdb" />
+		</ItemGroup>
+
+		<Copy SourceFiles="@(BuildArtifacts)" DestinationFolder="$(ModDeployDir)\bin" />
+		<Copy SourceFiles="everest.yaml" DestinationFolder="$(ModDeployDir)" SkipUnchangedFiles="true" />
+	</Target>
+
+	<Target Name="PackageMod" AfterTargets="CopyFiles" Inputs="$(ZippedFiles)" Outputs="$(ModDeployDir)\TheCelesteTracker_Mod.zip" Condition="'$(Configuration)' == 'Release'">
+		<ItemGroup>
+			<FilesToPackage Include="$(ZippedFiles)" />
+		</ItemGroup>
+		<PackageMod Files="@(FilesToPackage)" OutputPath="$(ModDeployDir)\TheCelesteTracker_Mod.zip" ModDeployDir="$(ModDeployDir)" />
+	</Target>
+
+	<PropertyGroup>
+		<PathMap>$(MSBuildProjectDirectory)=TheCelesteTracker_Mod/</PathMap>
+	</PropertyGroup>
+
+	<UsingTask TaskName="PackageMod" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+		<ParameterGroup>
+			<Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+			<OutputPath ParameterType="System.String" Required="true" />
+			<ModDeployDir ParameterType="System.String" Required="true" />
+		</ParameterGroup>
+		<Task>
+			<Using Namespace="System.IO" />
+			<Using Namespace="System.IO.Compression" />
+			<Code Type="Fragment" Language="cs">
+				<![CDATA[
+                var projectDir = Path.GetFullPath(Path.Combine(@"$(ProjectDir)", "..")); 
+                var deployDirFullPath = Path.GetFullPath(ModDeployDir);
+            
+                if (File.Exists(OutputPath))
+                    File.Delete(OutputPath);
+
+                using (ZipArchive zip = ZipFile.Open(OutputPath, ZipArchiveMode.Create))
+                {
+                    foreach (var file in Files)
+                    {
+                        string filePath = Path.GetFullPath(file.GetMetadata("FullPath"));
+                        string entryName;
+                        
+                        if (filePath.StartsWith(deployDirFullPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            entryName = filePath.Substring(deployDirFullPath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        }
+                        else
+                        {
+                            entryName = GetRelativePath(projectDir, filePath);
+                        }
+                        
+                        zip.CreateEntryFromFile(filePath, entryName);
+                    }
+                }
+    
+                string GetRelativePath(string fromPath, string toPath)
+                {
+                    Uri fromUri = new Uri(fromPath);
+                    Uri toUri = new Uri(toPath);
+                    if (fromUri.Scheme != toUri.Scheme) { return toPath; } 
+                    Uri relativeUri = fromUri.MakeRelativeUri(toUri);
+                    string relativePath = Uri.UnescapeDataString(relativeUri.ToString());
+                    return relativePath.Replace(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                }
+            ]]>
+			</Code>
+		</Task>
+	</UsingTask>
+</Project>
