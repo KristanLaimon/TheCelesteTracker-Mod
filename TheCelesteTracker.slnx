@@ -1,0 +1,17 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Debug (To Zip)" />
+    <BuildType Name="Release" />
+  </Configurations>
+  <Project Path="CommonCode/CommonCode.csproj" Id="596858d0-8929-4e06-a5e7-1617452e0b4a">
+    <BuildType Solution="Debug (To Zip)|*" Project="Debug" />
+  </Project>
+  <Project Path="TheCelesteTracker_Database/TheCelesteTracker_Database.csproj">
+    <BuildType Solution="Debug (To Zip)|*" Project="Debug" />
+  </Project>
+  <Project Path="TheCelesteTracker_ManualTesting/TheCelesteTracker_ManualTesting.csproj">
+    <BuildType Solution="Debug (To Zip)|*" Project="Debug" />
+  </Project>
+  <Project Path="TheCelesteTracker_Mod/TheCelesteTracker_Mod.csproj" />
+</Solution>

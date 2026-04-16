@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CommonCode\CommonCode.csproj" />
+    <ProjectReference Include="..\TheCelesteTracker_Database\TheCelesteTracker_Database.csproj" />
+    <ProjectReference Include="..\TheCelesteTracker_Mod\TheCelesteTracker_Mod.csproj" />
+  </ItemGroup>
+
+</Project>
