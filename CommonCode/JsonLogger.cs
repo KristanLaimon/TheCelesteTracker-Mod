@@ -9,5 +9,11 @@ namespace CommonCode
             string asJsonStr = JsonConvert.SerializeObject(anything, Formatting.Indented);
             Console.WriteLine(asJsonStr);
         }
+
+        public void LogToFile(string fileFullPath, object toJsonEncode)
+        {
+            string asJsonStr = JsonConvert.SerializeObject(toJsonEncode, Formatting.Indented);
+            File.WriteAllText(fileFullPath, asJsonStr);
+        }
     }
 }

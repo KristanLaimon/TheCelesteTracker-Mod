@@ -7,7 +7,7 @@ namespace TheCelesteTracker_Database
     {
         private string _saveFilesFolder;
         private Regex _vanillaSaveFileNameRegex = new Regex("^(\\d|debug)\\.celeste$");
-        private XmlSerializer _xmlSaveDataSerializer = new XmlSerializer(typeof(SaveData));
+        private XmlSerializer _xmlSaveDataSerializer = new XmlSerializer(typeof(XMLSaveData));
 
         public CelesteSaveFiles(string saveFilesFolder)
         {
@@ -29,13 +29,13 @@ namespace TheCelesteTracker_Database
             IEnumerable<string> allCelesteVanillaFiles = allFilesInSafeFolder
                .Where(fullPath => _vanillaSaveFileNameRegex.IsMatch(Path.GetFileName(fullPath)));
 
-            SaveData[] allVanillaSaves = allCelesteVanillaFiles
+            XMLSaveData[] allVanillaSaves = allCelesteVanillaFiles
                .Select(fullPath =>
                 {
                     try
                     {
                         using (FileStream fs = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                            return (SaveData?)_xmlSaveDataSerializer.Deserialize(fs);
+                            return (XMLSaveData?)_xmlSaveDataSerializer.Deserialize(fs);
                     }
                     catch (IOException)
                     {
@@ -52,7 +52,7 @@ namespace TheCelesteTracker_Database
                         return null; // O return null as SaveData; dependiendo de cómo dejaste el código anterior
                     }
                 })
-                .OfType<SaveData>()
+                .OfType<XMLSaveData>()
                 .ToArray();
             return allVanillaSaves;
         }
