@@ -26,7 +26,6 @@ namespace TheCelesteTracker_Database
         [Key]
         public int Id { get; set; }
 
-        [Key]
         public int UserId { get; set; }
 
         /// <summary>
@@ -80,9 +79,6 @@ namespace TheCelesteTracker_Database
 
         public string Name { get; set; } = "";
         public int BerriesAvailable { get; set; }
-        public int BerriesCollected { get; set; }
-        public bool GoldenBerryCollected { get; set; }
-
         [ForeignKey(nameof(CampaignId))]
         public Campaign Campaign { get; set; } = null!;
         public List<ChapterRoom> Rooms { get; set; } = new();
@@ -153,10 +149,10 @@ namespace TheCelesteTracker_Database
     /// </summary>
     public class GameSessionChapterRoomStats
     {
-        [Key]
+        // [Key] Handled in OnModelCreating via HasKey
         public string GameSessionId { get; set; } = null!;
 
-        [Key]
+        // [Key] Handled in OnModelCreating via HasKey
         public string ChapterRoomId { get; set; } = null!;
 
         public int Deaths { get; set; }

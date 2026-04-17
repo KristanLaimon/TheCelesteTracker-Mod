@@ -26,6 +26,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <ProjectReference Include="..\CommonCode\CommonCode.csproj" />
+	  <ProjectReference Include="..\TheCelesteTracker_Database\TheCelesteTracker_Database.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Reference Include="FNA">
 			<HintPath>lib-stripped\FNA.dll</HintPath>
 		</Reference>

@@ -15,7 +15,8 @@ internal class Program
 
         string logOuputFileJson = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "datasave.json");
         var CelesteSaveFiles = new CelesteSaveFiles(Path.Join(Utils.GetCelestePath(), "Saves - TESTCOPY"));
-        l.LogToFile(logOuputFileJson, CelesteSaveFiles.Vanilla_GetSaveFiles().ElementAt(1));
+        var myGoodSaveFile = CelesteSaveFiles.Vanilla_GetSaveFiles().ElementAt(1)!;
+        await db.AddFullSaveData(myGoodSaveFile, 1);
         Console.WriteLine("Ready");
     }
 }

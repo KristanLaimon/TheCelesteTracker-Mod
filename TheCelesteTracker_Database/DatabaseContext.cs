@@ -2,7 +2,7 @@
 
 namespace TheCelesteTracker_Database
 {
-    internal class DatabaseContext : DbContext
+    public class DatabaseContext : DbContext
     {
         public DbSet<User> Users => Set<User>();
         public DbSet<SaveData> Saves => Set<SaveData>();

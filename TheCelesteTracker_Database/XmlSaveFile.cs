@@ -360,34 +360,28 @@ namespace TheCelesteTracker_Database
         public Poem Poem { get; set; }
 
         [XmlElement(ElementName = "SummitGems")]
-        public required SummitGems SummitGems { get; set; }
+        public SummitGems? SummitGems { get; set; }
 
         [XmlElement(ElementName = "RevealedChapter9")]
         public bool RevealedChapter9 { get; set; }
 
         [XmlElement(ElementName = "LastArea")]
-        public required LastArea LastArea { get; set; }
+        public LastArea? LastArea { get; set; }
 
         [XmlElement(ElementName = "Areas")]
-        public required Areas Areas { get; set; }
+        public Areas? Areas { get; set; }
 
         [XmlElement(ElementName = "LevelSets")]
-        public required LevelSets LevelSets { get; set; }
+        public LevelSets? LevelSets { get; set; }
 
         [XmlElement(ElementName = "LevelSetRecycleBin")]
-        public required LevelSetRecycleBin LevelSetRecycleBin { get; set; }
+        public LevelSetRecycleBin? LevelSetRecycleBin { get; set; }
 
         [XmlElement(ElementName = "HasModdedSaveData")]
         public bool HasModdedSaveData { get; set; }
 
         [XmlElement(ElementName = "LastArea_Safe")]
-        public required LastAreaSafe LastAreaSafe { get; set; }
-
-        [XmlAttribute(AttributeName = "xsi")]
-        public required string Xsi { get; set; }
-
-        [XmlAttribute(AttributeName = "xsd")]
-        public required string Xsd { get; set; }
+        public LastAreaSafe? LastAreaSafe { get; set; }
 
         [XmlText]
         public string? Text { get; set; }

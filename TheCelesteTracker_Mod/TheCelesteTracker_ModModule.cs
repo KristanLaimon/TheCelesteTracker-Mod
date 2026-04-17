@@ -1,8 +1,10 @@
 using Celeste.Mod.TheCelesteTracker_Mod.Coding.services;
+using CommonCode;
 using Microsoft.Xna.Framework;
 using MonoMod.ModInterop;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using static On.Celeste.Level;
 using static On.Celeste.Player;
@@ -25,6 +27,10 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         public static TheCelesteTracker_ModModuleSaveData ModSaveData => (TheCelesteTracker_ModModuleSaveData)Instance._SaveData;
 
 
+        public static ISimpleLogger l = new TheCelesteModTrackerLogger();
+
+        public static CelesteTrackerDb DB = new CelesteTrackerDb(Path.Join(Everest.PathGame, "Saves"), l);
+
 
         public TheCelesteTracker_ModModule()
         {
@@ -44,14 +50,14 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             //On.Celeste.Level.TransitionRoutine += Level_TransitionRoutine;
             //On.Celeste.Level.RegisterAreaComplete += Level_RegisterAreaComplete;
             //On.Celeste.LevelExit.ctor += LevelExit_ctor;
+            //Everest.Events.FileSelectSlot.OnCreateButtons += OnFileSelectSlotCreateButtons;
             On.Celeste.Player.DashBegin += Player_DashBegin;
             On.Celeste.Level.Begin += OnLevelBegin;
-            On.Celeste.SaveData.StartSession += OnStartSession;
+            On.Celeste.SaveData.StartSession += OnLevelSessionStart;
             On.Celeste.Level.NextLevel += OnNextRoom;
-            On.Celeste.Level.End += OnLevelEnd;
+            On.Celeste.Level.End += OnLevelSessionEnd;
 
             Everest.Events.MainMenu.OnCreateButtons += OnMainMenuCreateButtons;
-            Everest.Events.FileSelectSlot.OnCreateButtons += OnFileSelectSlotCreateButtons;
 
             TrackerWebSocketServer.Start();
 
@@ -64,60 +70,67 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             //On.Celeste.Level.TransitionRoutine -= Level_TransitionRoutine;
             //On.Celeste.Level.RegisterAreaComplete -= Level_RegisterAreaComplete;
             //On.Celeste.LevelExit.ctor -= LevelExit_ctor;
-            On.Celeste.Player.DashBegin -= Player_DashBegin;
-            On.Celeste.Level.Begin -= OnLevelBegin;
-            On.Celeste.SaveData.StartSession -= OnStartSession;
-            On.Celeste.Level.NextLevel -= OnNextRoom;
-            On.Celeste.Level.End -= OnLevelEnd;
-            Everest.Events.MainMenu.OnCreateButtons -= OnMainMenuCreateButtons;
-            Everest.Events.FileSelectSlot.OnCreateButtons -= OnFileSelectSlotCreateButtons;
+            //Everest.Events.FileSelectSlot.OnCreateButtons -= OnFileSelectSlotCreateButtons;
             //On.Celeste.SaveData.
             //On.Celeste.SaveData.GetCheckpoints
+            On.Celeste.Player.DashBegin -= Player_DashBegin;
+            On.Celeste.Level.Begin -= OnLevelBegin;
+            On.Celeste.SaveData.StartSession -= OnLevelSessionStart;
+            On.Celeste.Level.NextLevel -= OnNextRoom;
+            On.Celeste.Level.End -= OnLevelSessionEnd;
+            Everest.Events.MainMenu.OnCreateButtons -= OnMainMenuCreateButtons;
 
             TrackerWebSocketServer.Stop();
         }
 
-        private void OnFileSelectSlotCreateButtons(List<OuiFileSelectSlot.Button> buttons, OuiFileSelectSlot slot, EverestModuleSaveData modSaveData, bool fileExists)
-        {
-            // 'slot' es el objeto visual de la ranura (ranura 0, 1, 2...)
-            // 'slot.SaveData' contiene la información de vainilla (muertes, tiempo, etc.)
-            Loggy.Log(new
-            {
-                Event = "OnFileSelectSlot",
-                OuiFileSelectSlotListInfoRaw = buttons.Select((button) =>
-                {
-                    return new
-                    {
-                        label = button.Label,
-                        scale = button.Scale,
-                    };
-                })
-            });
-
-            if (fileExists && slot.SaveData != null)
-            {
-                int index = slot.buttonIndex;
-                long muertes = slot.SaveData.TotalDeaths;
-                string nombre = slot.SaveData.Name;
-
-                Logger.Log(LogLevel.Info, "MiTracker", $"Visualizando Slot {index} ({nombre}): {muertes} muertes totales.");
-            }
-        }
-
-        //When entering into main menu. Like a startup() method, but in-game
+        /// <summary>
+        /// When entering into main menu. Like a startup() method, but in-game
+        /// </summary>
+        /// <param name="menu"></param>
+        /// <param name="buttons"></param>
         private void OnMainMenuCreateButtons(OuiMainMenu menu, List<MenuButton> buttons)
         {
-            Loggy.Log(new
+            l.Log(new
             {
                 Event = "OnMainMenuCreateButtons",
                 msg = "Main Menu!!",
             });
         }
 
-        //When going to main manú and pressing "Save and quit"
-        private static void OnLevelEnd(orig_End orig, global::Celeste.Level self)
+        //When playing for the first time a chapter, or "Save and quit" and then entering into save file again
+        private static void OnLevelSessionStart(orig_StartSession orig, global::Celeste.SaveData self, global::Celeste.Session session)
         {
-            Loggy.Log(new
+            orig(self, session);
+
+            //1. Check if this saveFile already exists in db (Linked to actual user) 
+            TheCelesteTracker_Database.SaveData? saveFileFound = DB.ctx.Saves.Where((saveFile) => (saveFile.FileName == self.Name || saveFile.SlotNumber == self.FileSlot)).FirstOrDefault();
+            if (saveFileFound is null)
+            {
+                var inserted = DB.ctx.Saves.Add(new TheCelesteTracker_Database.SaveData { FileName = self.Name, SlotNumber = self.FileSlot, UserId = DB.CurrentUser.Id });
+                saveFileFound = inserted.Entity;
+            }
+
+            //2. First check if this Mod-Campaign/Chapter-Level is registered in internal DB.
+            var foundActualCampaign = DB.ctx.Campaigns.Where((campaign) => campaign.SaveData == saveFileFound).FirstOrDefault();
+            if (foundActualCampaign is null)
+            {
+                var inserted = DB.Campaign_InsertSingle(saveFileFound.Id, session.)
+            }
+
+
+            //3. Create a new sessionrun
+
+            //DebugLogger.Log(simpleData);
+            LevelSetStats algo = self.LevelSetStats;
+            l.Log(algo);
+        }
+
+
+
+        //When going to main manú and pressing "Save and quit"
+        private static void OnLevelSessionEnd(orig_End orig, global::Celeste.Level self)
+        {
+            l.Log(new
             {
                 Event = "Level_End"
             });
@@ -130,7 +143,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         private static void OnNextRoom(orig_NextLevel orig, global::Celeste.Level self, Vector2 at, Vector2 dir)
         {
             //DebugLogger.Log("Next level!!! event");
-            Loggy.Log(new
+            l.Log(new
             {
                 Event = "Level_NextLevel",
                 RoomInfo = new
@@ -139,33 +152,6 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                 }
             });
             orig(self, at, dir);
-        }
-
-        //When playing for the first time a chapter, or "Save and quit" and then entering into save file again
-        private static void OnStartSession(orig_StartSession orig, global::Celeste.SaveData self, global::Celeste.Session session)
-        {
-            orig(self, session);
-
-            //// Create a "DTO" (Data Transfer Object) with only the facts you need
-            //var simpleData = new
-            //{
-            //    Event = "SessionStarted",
-            //    FileSlot = self.FileSlot,
-            //    Name = self.Name,
-            //    TotalDeaths = self.TotalDeaths, //This is total deaths in current session only
-            //    CurrentSession = new
-            //    {
-            //        AreaID = session.Area.ID,
-            //        SID = session.Area.GetSID(),
-            //        Mode = session.Area.Mode.ToString(),
-            //        LevelName = session.Level,
-            //        SessionDeaths = session.Deaths
-            //    }
-            //};
-
-            //DebugLogger.Log(simpleData);
-            LevelSetStats algo = self.LevelSetStats;
-            Loggy.Log(algo);
         }
 
 
@@ -186,8 +172,34 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                 RoomName = self.Session.Level,
                 Mode = self.Session.Area.Mode.ToString()
             };
-            Loggy.Log(ev);
+            l.Log(ev);
             _ = TrackerWebSocketServer.BroadcastEvent(ev);
         }
     }
 }
+//private void OnFileSelectSlotCreateButtons(List<OuiFileSelectSlot.Button> buttons, OuiFileSelectSlot slot, EverestModuleSaveData modSaveData, bool fileExists)
+//{
+//    // 'slot' es el objeto visual de la ranura (ranura 0, 1, 2...)
+//    // 'slot.SaveData' contiene la información de vainilla (muertes, tiempo, etc.)
+//    Loggy.Log(new
+//    {
+//        Event = "OnFileSelectSlot",
+//        OuiFileSelectSlotListInfoRaw = buttons.Select((button) =>
+//        {
+//            return new
+//            {
+//                label = button.Label,
+//                scale = button.Scale,
+//            };
+//        })
+//    });
+
+//    if (fileExists && slot.SaveData != null)
+//    {
+//        int index = slot.buttonIndex;
+//        long muertes = slot.SaveData.TotalDeaths;
+//        string nombre = slot.SaveData.Name;
+
+//        Logger.Log(LogLevel.Info, "MiTracker", $"Visualizando Slot {index} ({nombre}): {muertes} muertes totales.");
+//    }
+//}

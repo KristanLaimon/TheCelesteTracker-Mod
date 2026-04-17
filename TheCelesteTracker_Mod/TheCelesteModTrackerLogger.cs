@@ -1,12 +1,11 @@
-﻿using Newtonsoft.Json;
+﻿using CommonCode;
+using Newtonsoft.Json;
 
 namespace Celeste.Mod.TheCelesteTracker_Mod
 {
-    internal static class Loggy
+    internal class TheCelesteModTrackerLogger : ISimpleLogger
     {
-        private const string FileLogPath = "../local_logger.json"; //Will  be from ./bin point of view
-
-        public static void Log(object anything)
+        public void Log(object anything)
         {
             string envModeMsg;
 #if DEBUG
