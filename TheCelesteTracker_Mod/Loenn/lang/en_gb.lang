@@ -1,7 +1,0 @@
-# Sample Entity
-entities.TheCelesteTracker_Mod/SampleEntity.placements.name.normal=Sample Entity
-entities.TheCelesteTracker_Mod/SampleEntity.attributes.description.sampleProperty=A sample property for your entity.
-
-# Sample Trigger
-triggers.TheCelesteTracker_Mod/SampleTrigger.placements.name.normal=Sample Trigger
-triggers.TheCelesteTracker_Mod/SampleTrigger.attributes.description.sampleProperty=A sample property for your trigger.

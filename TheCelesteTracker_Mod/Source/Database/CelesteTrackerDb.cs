@@ -1,14 +1,10 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+using CommonCode;
 using Dapper;
 using Microsoft.Data.Sqlite;
-using CommonCode;
-using Celeste.Mod.TheCelesteTracker_Mod.Database;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Celeste.Mod.TheCelesteTracker_Mod.Database
 {
@@ -103,7 +99,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
             var user = _connection.QueryFirstOrDefault<User>("SELECT * FROM Users LIMIT 1");
             if (user == null)
             {
-                string name = Environment.UserName ?? "DefaultUser";
+                string name = Environment.UserName ?? "Celeste climber";
                 _connection.Execute("INSERT INTO Users (Name) VALUES (@Name)", new { Name = name });
                 user = _connection.QueryFirstOrDefault<User>("SELECT * FROM Users WHERE Name = @Name", new { Name = name });
             }
@@ -144,7 +140,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                 IsGoldenBerryAttempt = false,
                 RoomStats = new List<GameSessionChapterRoomStats>()
             };
-            await InsertGameSession(newSession);
+
 
             return newSession;
         }
