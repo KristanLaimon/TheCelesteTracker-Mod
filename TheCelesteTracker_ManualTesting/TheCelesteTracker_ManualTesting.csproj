@@ -12,8 +12,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CommonCode\CommonCode.csproj" />
-    <ProjectReference Include="..\TheCelesteTracker_Database\TheCelesteTracker_Database.csproj" />
     <ProjectReference Include="..\TheCelesteTracker_Mod\TheCelesteTracker_Mod.csproj" />
   </ItemGroup>
 

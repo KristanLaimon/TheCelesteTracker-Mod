@@ -43,33 +43,34 @@
 	</ItemGroup>
 
 	<Target Name="DeployMod" AfterTargets="Build">
-		<MakeDir Directories="$(ModDeployDir)" />
+		<MakeDir Directories="$(ModDeployDir)\bin" />
+
 		<ItemGroup>
 			<FilteredArtifacts Include="$(OutputPath)*.dll;$(OutputPath)*.pdb"
 			  Exclude="$(OutputPath)Celeste.*;
-                 $(OutputPath)FNA.*;
-                 $(OutputPath)MMHOOK_Celeste.*;
-                 $(OutputPath)MonoMod.*;
-                 $(OutputPath)Mono.Cecil*;
-                 $(OutputPath)AsmResolver*" />
+                   $(OutputPath)FNA.*;
+                   $(OutputPath)MMHOOK_Celeste.*;
+                   $(OutputPath)MonoMod.*;
+                   $(OutputPath)Mono.Cecil*;
+                   $(OutputPath)AsmResolver*" />
 			<NativeSqlite Include="$(OutputPath)runtimes\win-x64\native\e_sqlite3.dll" />
 		</ItemGroup>
 
 		<Copy SourceFiles="@(FilteredArtifacts)"
-			  DestinationFolder="$(ModDeployDir)"
+			  DestinationFolder="$(ModDeployDir)\bin"
 			  OverwriteReadOnlyFiles="true"
-			  SkipUnchangedFiles="false" />
+			  SkipUnchangedFiles="true" />
 
-		<!-- Copy e_sqlite3.dll to mod root so Everest can find it at runtime -->
 		<Copy SourceFiles="@(NativeSqlite)"
-			  DestinationFolder="$(ModDeployDir)"
+			  DestinationFolder="$(ModDeployDir)\bin"
 			  OverwriteReadOnlyFiles="true"
-			  Condition="Exists('%(FullPath)')" />
+			  Condition="Exists('%(FullPath)') AND !Exists('$(ModDeployDir)\bin\e_sqlite3.dll')" />
 
 		<Copy SourceFiles="everest.yaml"
 			  DestinationFolder="$(ModDeployDir)"
 			  OverwriteReadOnlyFiles="true" />
 
-		<Message Text="Mod deployed. Native e_sqlite3.dll copied to mod root." Importance="high" />
+		<Message Text="Mod deployed to bin/. Native e_sqlite3.dll skipped (already exists)."
+				 Condition="Exists('$(ModDeployDir)\bin\e_sqlite3.dll')" Importance="high" />
 	</Target>
 </Project>

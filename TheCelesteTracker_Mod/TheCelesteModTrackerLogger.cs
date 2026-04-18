@@ -1,5 +1,6 @@
-﻿using CommonCode;
+using CommonCode;
 using Newtonsoft.Json;
+using System;
 
 namespace Celeste.Mod.TheCelesteTracker_Mod
 {
@@ -11,11 +12,26 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
 #if DEBUG
             envModeMsg = "Debug/Dev MODE";
 #else
-            isProduction = "Production MODE";
+            envModeMsg = "Production MODE";
 #endif
-            string asJson = JsonConvert.SerializeObject(anything, Formatting.Indented);
-            // El primer parámetro es el "Tag" (para filtrar), el segundo es el mensaje.
-            Logger.Log(LogLevel.Info, $"TheCelesteTracker [{envModeMsg}]", asJson);
+
+            try
+            {
+                string asJson = JsonConvert.SerializeObject(anything, Formatting.Indented, new JsonSerializerSettings
+                {
+                    MaxDepth = 5,
+                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                    NullValueHandling = NullValueHandling.Include,
+                    Error = (sender, args) => { args.ErrorContext.Handled = true; }
+                });
+
+                // El primer parámetro es el "Tag" (para filtrar), el segundo es el mensaje.
+                Logger.Log(LogLevel.Info, $"TheCelesteTracker [{envModeMsg}]", asJson);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(LogLevel.Warn, $"TheCelesteTracker [{envModeMsg}]", "Failed to serialize log object: " + ex.Message);
+            }
         }
     }
 }
