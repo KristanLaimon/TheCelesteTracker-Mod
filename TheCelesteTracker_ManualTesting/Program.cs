@@ -16,3 +16,11 @@
 //        Console.WriteLine("Ready");
 //    }
 //}
+
+internal class Program
+{
+    private static void Main(string[] args)
+    {
+
+    }
+}

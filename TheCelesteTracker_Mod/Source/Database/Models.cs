@@ -42,13 +42,31 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
         public DateTime DateTimeStarted { get; set; }
         public bool IsGoldenBerryAttempt { get; set; }
         public List<GameSessionChapterRoomStats> RoomStats { get; set; } = new();
+
+        public void AddRoomStat()
+        {
+            RoomStats.Add(new GameSessionChapterRoomStats
+            {
+                GameSessionId = Id,
+
+
+            });
+        }
     }
+
+    //pending to do ChapterRoom table again
 
     public class GameSessionChapterRoomStats
     {
-        public int Id { get; set; }
+        public int ChapterRoomSID { get; set; }
         public string GameSessionId { get; set; } = "";
         public string RoomName { get; set; } = "";
+
         public int Deaths { get; set; }
+        public int Dashes { get; set; }
+
+        public int StrawberriesAchieved { get; set; }
+        public int HeartsAchieved { get; set; }
     }
+
 }

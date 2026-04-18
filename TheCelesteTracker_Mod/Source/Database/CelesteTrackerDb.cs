@@ -4,6 +4,7 @@ using Dapper;
 using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Celeste.Mod.TheCelesteTracker_Mod.Database
@@ -15,9 +16,9 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
 
         public User CurrentUser { get; private set; } = null!;
 
-        public CelesteTrackerDb(string dbPath, ISimpleLogger logger)
+        public CelesteTrackerDb(string dbFilePath, ISimpleLogger logger)
         {
-            _connection = new SqliteConnection($"Data Source={dbPath}");
+            _connection = new SqliteConnection($"Data Source={dbFilePath}");
             _connection.Open();
             _logger = logger;
             InitDatabase();
@@ -67,10 +68,13 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                 );
 
                 CREATE TABLE IF NOT EXISTS GameSessionChapterRoomStats (
-                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ChapterRoomId TEXT PRIMARY KEY,
                     GameSessionId TEXT NOT NULL,
                     RoomName TEXT NOT NULL,
                     Deaths INTEGER NOT NULL,
+                    Dashes INTEGER NOT NULL,
+                    StrawberriesAchieved INTEGER NOT NULL,
+                    HeartsAchieved INTEGER NOT NULL,
                     FOREIGN KEY (GameSessionId) REFERENCES GameSessions(Id)
                 );
             ";
@@ -106,8 +110,16 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
             CurrentUser = user!;
         }
 
-        public async Task<GameSession> GetCurrentSessionFullStats(string saveName, int saveSlot, string levelSet, string areaSid, string modeId, int totalBerries)
+        public async Task<DbSessionContext> EnsureSessionInDB(global::Celeste.Session session)
         {
+            var saveData = global::Celeste.SaveData.Instance;
+            string saveName = saveData.Name;
+            int saveSlot = saveData.FileSlot;
+            string levelSet = session.Area.LevelSet;
+            string areaSid = session.Area.GetSID();
+            AreaMode modeId = session.Area.Mode;
+            int totalBerries = global::Celeste.AreaData.Get(session.Area).Mode.Sum(mode => mode.TotalStrawberries);
+
             // 1. Ensure exists current "SaveData" in DB
             SaveData? saveFileFound = await GetSaveData(saveName, saveSlot);
             if (saveFileFound is null)
@@ -130,19 +142,29 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                 foundActualChapterLevel = await Chapter_InsertSingle(expectedChapterSid, foundActualCampaign.Id, totalBerries);
             }
 
-            // 4. Create and insert new session
-            var newSession = new GameSession
+            // 4. Create new session
+            var newSession = CreateNewSession(foundActualChapterLevel, modeId);
+
+            return new DbSessionContext
+            {
+                Session = newSession,
+                SaveData = saveFileFound,
+                Campaign = foundActualCampaign,
+                Chapter = foundActualChapterLevel
+            };
+        }
+
+        public GameSession CreateNewSession(Chapter chapter, AreaMode mode)
+        {
+            return new GameSession
             {
                 Id = Guid.NewGuid().ToString(),
-                ChapterSID = foundActualChapterLevel.SID,
-                ChapterSideId = modeId,
+                ChapterSID = chapter.SID,
+                ChapterSideId = mode.ToStringId(),
                 DateTimeStarted = DateTime.UtcNow,
                 IsGoldenBerryAttempt = false,
                 RoomStats = new List<GameSessionChapterRoomStats>()
             };
-
-
-            return newSession;
         }
 
         public async Task<SaveData?> GetSaveData(string fileName, int slotNumber)
@@ -221,6 +243,16 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                 DateTimeStarted = session.DateTimeStarted.ToString("o"),
                 IsGoldenBerryAttempt = session.IsGoldenBerryAttempt ? 1 : 0
             });
+
+        }
+
+        public async Task CreateGameSessionStat(GameSessionChapterRoomStats stat)
+        {
+            string sql = @"
+                INSERT INTO GameSessionChapterRoomStats (ChapterRoomId, GameSessionId, RoomName, Deaths, Dashes, StrawberriesAchieved, HeartsAchieved)
+                VALUES (@ChapterRoomId, @GameSessionId, @RoomName, @Deaths, @Dashes, @StrawberriesAchieved, @HeartsAchieved);
+            ";
+            await _connection.ExecuteAsync(sql, stat);
         }
 
         public void Dispose()
