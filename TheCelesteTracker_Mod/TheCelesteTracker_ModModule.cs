@@ -1,3 +1,4 @@
+using Celeste.Mod.TheCelesteTracker_Mod.Database;
 using CommonCode;
 using Microsoft.Xna.Framework;
 using MonoMod.ModInterop;
@@ -9,7 +10,7 @@ using System.Runtime.InteropServices;
 using static On.Celeste.Level;
 using static On.Celeste.Player;
 using static On.Celeste.SaveData;
-
+using Db = Celeste.Mod.TheCelesteTracker_Mod.Database;
 //Some useful events (self-documentation)
 //On.Celeste.Player.Die -= Player_Die;
 //On.Celeste.Level.TransitionRoutine -= Level_TransitionRoutine;
@@ -124,46 +125,17 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         {
             orig(self, session);
 
-            //1. Ensure exists current "SaveData" in DB
-            TheCelesteTracker_Database.SaveData? saveFileFound = DB.ctx.Saves.FirstOrDefault((saveFile) => (saveFile.FileName == self.Name || saveFile.SlotNumber == self.FileSlot));
-            if (saveFileFound is null)
-            {
-                var inserted = DB.ctx.Saves.Add(new TheCelesteTracker_Database.SaveData { FileName = self.Name, SlotNumber = self.FileSlot, UserId = DB.CurrentUser.Id });
-                saveFileFound = inserted.Entity;
-                DB.ctx.SaveChanges();
-            }
+            global::Celeste.AreaData currentChapterData = AreaData.Get(session.Area);
+            int totalBerries = currentChapterData.Mode.Sum(mode => mode.TotalStrawberries);
 
-            //2. Ensure exists current "Campaign" data linked to this "SaveData" in DB
-            var campaignName = session.Area.LevelSet;
-            TheCelesteTracker_Database.Campaign? foundActualCampaign = DB.ctx.Campaigns.FirstOrDefault(c => c.SaveDataId == saveFileFound.Id && c.CampaignNameId == campaignName);
-            if (foundActualCampaign is null)
-            {
-                foundActualCampaign = await DB.Campaign_InsertSingle(saveFileFound.Id, campaignName);
-            }
-
-            //3. Ensure exists current "Chapter" (also known as AreaData) linked to "Campaign" that is linked to current "SaveData"
-            string expectedChapterSid = $"{foundActualCampaign.Id}:{session.Area.GetSID()}";
-            TheCelesteTracker_Database.Chapter? foundActualChapterLevel = DB.ctx.Chapters.FirstOrDefault(c => c.SID == expectedChapterSid);
-            if (foundActualChapterLevel is null)
-            {
-                global::Celeste.AreaData currentChapterData = AreaData.Get(session.Area);
-                int totalBerries = currentChapterData.Mode.Sum(mode => mode.TotalStrawberries); //Sum strawberries from SIDEA, SIDEB and SIDEC (if exists ofc)
-                foundActualChapterLevel = await DB.Chapter_InsertSingle(session.Area.GetSID(), foundActualCampaign.Id, totalBerries);
-            }
-            DB.ctx.SaveChanges();
-            DB.ctx.ChangeTracker.Clear();
-
-            //4. This doesn't need ""ensurement"", always is a new session, let's create a new one. (Tracked by EFCore!)
-            var newSession = new TheCelesteTracker_Database.GameSession
-            {
-                Id = Guid.NewGuid().ToString(),
-                ChapterSID = foundActualChapterLevel.SID,
-                ChapterSideId = session.Area.Mode.ToStringId(),
-                DateTimeStarted = DateTime.UtcNow,
-                IsGoldenBerryAttempt = false, //Updated when grabbing golderstrawberry
-                RoomStats = new List<TheCelesteTracker_Database.GameSessionChapterRoomStats>()
-            };
-            ModSession.CurrentSession = newSession;
+            ModSession.CurrentSession = await DB.GetCurrentSessionFullStats(
+                self.Name,
+                self.FileSlot,
+                session.Area.LevelSet,
+                session.Area.GetSID(),
+                session.Area.Mode.ToStringId(),
+                totalBerries
+            );
 
             l.Log(new { Event = "OnLevelStart" });
         }

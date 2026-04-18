@@ -21,11 +21,8 @@
 		<PackageReference Include="CelesteAnalyzer" Version="*" PrivateAssets="all" />
 		<PackageReference Include="CelesteMod.Publicizer" Version="*" CelesteAssembly="$(CelestePrefix)\Celeste.dll" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" PrivateAssets="all" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<ProjectReference Include="..\CommonCode\CommonCode.csproj" />
-		<ProjectReference Include="..\TheCelesteTracker_Database\TheCelesteTracker_Database.csproj" />
+		<PackageReference Include="Dapper" Version="2.1.35" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
