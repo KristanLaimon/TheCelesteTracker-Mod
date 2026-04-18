@@ -1,7 +1,7 @@
 using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 
-namespace Celeste.Mod.TheCelesteTracker_Mod.Coding.Triggers
+namespace Celeste.Mod.TheCelesteTracker_Mod.Source.Triggers
 {
     [CustomEntity("TheCelesteTracker_Mod/SampleTrigger")]
     public class SampleTrigger : Trigger

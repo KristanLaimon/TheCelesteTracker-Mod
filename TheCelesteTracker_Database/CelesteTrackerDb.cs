@@ -9,11 +9,13 @@ public class CelesteTrackerDb
     public User CurrentUser;
 
 
-    public CelesteTrackerDb(string path, ISimpleLogger? loggerToUse = null)
+    public CelesteTrackerDb(string databaseFilePath, ISimpleLogger? loggerToUse = null)
     {
-        ctx = new DatabaseContext(path);
-        _path = path;
+        ctx = new DatabaseContext(databaseFilePath);
+        _path = databaseFilePath;
+
         _logger = loggerToUse;
+        ctx.Database.EnsureCreated();
         CurrentUser = ctx.Users.First()!; //Theres always at least one user in db, seeded in "DatabaseContext.cs" 
         ctx.Entry(CurrentUser).State = Microsoft.EntityFrameworkCore.EntityState.Detached; // Do not let EF track this, not necessary.
     }
@@ -26,7 +28,6 @@ public class CelesteTrackerDb
         await ctx.Database.EnsureCreatedAsync();
         await ctx.SaveChangesAsync();
     }
-
 
     public async Task ResetDatabase()
     {
@@ -102,7 +103,7 @@ public class CelesteTrackerDb
     //public static Campaign_GenerateId(int saveDataId, string campaignName) => $"{saveDataId}:{campaignName}";
 
 
-    public async Task Campaign_InsertSingle(int saveDataId, string campaignName)
+    public async Task<Campaign> Campaign_InsertSingle(int saveDataId, string campaignName)
     {
         string campaignId = $"{saveDataId}:{campaignName}";
 
@@ -116,6 +117,28 @@ public class CelesteTrackerDb
 
         await ctx.Campaigns.AddAsync(campaign);
         await ctx.SaveChangesAsync();
+
+        ctx.Entry(campaign).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+        return campaign;
+    }
+
+    public async Task<Chapter> Chapter_InsertSingle(string areaLevelSID, string campaignId, int berriesAvailable)
+    {
+        // Prefix SID with the campaign ID to ensure absolute uniqueness across multiple save files
+        string chapterSid = $"{campaignId}:{areaLevelSID}";
+
+        var chapter = new Chapter
+        {
+            SID = chapterSid,
+            CampaignId = campaignId,
+            Name = areaLevelSID?.Split('/').LastOrDefault() ?? $"Area {Guid.NewGuid().ToString().Substring(0, 8)}",
+            BerriesAvailable = berriesAvailable,
+            Rooms = new List<ChapterRoom>()
+        };
+
+        await ctx.Chapters.AddAsync(chapter);
+        await ctx.SaveChangesAsync();
+        return chapter;
     }
 
     private Campaign ProcessCampaign(SaveData saveData, string campaignNameId, List<AreaStats> areaStats, List<GameSession> sessions)

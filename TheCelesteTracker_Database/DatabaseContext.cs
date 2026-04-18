@@ -15,9 +15,9 @@ namespace TheCelesteTracker_Database
 
         private readonly string _dbPath;
 
-        public DatabaseContext(string dbPath)
+        public DatabaseContext(string databaseFilePath)
         {
-            _dbPath = dbPath;
+            _dbPath = databaseFilePath;
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder options)

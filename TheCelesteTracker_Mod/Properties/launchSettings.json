@@ -1,7 +1,10 @@
 {
   "profiles": {
-    "TheCelesteTracker_Mod": {
-      "commandName": "Project"
+    "Profile 1": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Celeste\\Celeste.exe",
+      "workingDirectory": "C:\\\\Program Files (x86)\\\\Steam\\\\steamapps\\\\common\\\\Celeste",
+      "nativeDebugging": true
     }
   }
 }

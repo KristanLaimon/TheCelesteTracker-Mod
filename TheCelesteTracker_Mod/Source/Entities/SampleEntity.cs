@@ -2,7 +2,7 @@ using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.TheCelesteTracker_Mod.Coding.Entities
+namespace Celeste.Mod.TheCelesteTracker_Mod.Source.Entities
 {
     [CustomEntity("TheCelesteTracker_Mod/SampleEntity")]
     public class SampleEntity : Entity

@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 #nullable enable
-namespace Celeste.Mod.TheCelesteTracker_Mod.Coding.services
+namespace Celeste.Mod.TheCelesteTracker_Mod.Source.services
 {
     public static class TrackerWebSocketServer
     {
