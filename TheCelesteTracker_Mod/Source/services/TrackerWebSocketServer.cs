@@ -92,6 +92,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Source.services
                         _ = SendToClient(wsContext.WebSocket, new
                         {
                             Type = "DatabaseLocation",
+                            DatabasePath = TheCelesteTracker_ModModule.DbPath,
                             EverestVersion = Everest.Version.ToString(),
                             ModVersion = TheCelesteTracker_ModModule.Instance.Metadata.Version.ToString()
                         });
