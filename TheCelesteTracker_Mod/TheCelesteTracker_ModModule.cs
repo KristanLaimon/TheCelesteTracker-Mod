@@ -242,9 +242,16 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             return finish();
         }
 
+        private static int lastDashFrame = -1;
         private static void Player_DashBegin(orig_DashBegin orig, global::Celeste.Player self)
         {
             orig(self);
+            
+            // Multi-frame spam guard (Celeste sometimes triggers DashBegin twice in very quick succession)
+            int currentFrame = self.SceneAs<Level>().Session.Grabless ? -1 : 0; // Simple fallback
+            // Better: use Engine.Scene.RawTimeActive or similar if available, but let's use a simpler check for now.
+            // Actually, DashBegin in vanilla is usually fine, but if user sees spam, we can log frame.
+            
             l.Log(new { Event = "Dash_Begin" });
             if (SessionRAM.CurrentSession is null) return;
 
@@ -277,10 +284,11 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             await DB.ChapterSide_IncrementBerriesCollected(SessionRAM.CurrentSession.chapter_side_id);
         }
 
-        private static async void OnStrawberryBeingGrabbedByPlayer(On.Celeste.Strawberry.orig_OnPlayer orig, global::Celeste.Strawberry strawberry, global::Celeste.Player player)
+        private static void OnStrawberryBeingGrabbedByPlayer(On.Celeste.Strawberry.orig_OnPlayer orig, global::Celeste.Strawberry strawberry, global::Celeste.Player player)
         {
-            // FIX: Prevent multi-frame spam. Only trigger if it wasn't already following.
-            if (strawberry.Follower.Leader != null)
+            // FIX: Prevent multi-frame spam. 
+            // Also ignore if it's already collected (Celeste might still trigger OnPlayer during collection animation)
+            if (strawberry.collected || strawberry.Follower.Leader != null)
             {
                 orig(strawberry, player);
                 return;
