@@ -6,6 +6,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using static On.Celeste.HeartGem;
 using static On.Celeste.Level;
 using static On.Celeste.Player;
 using static On.Celeste.SaveData;
@@ -78,6 +79,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             On.Celeste.SaveData.StartSession += OnLevelSessionStart;
             On.Celeste.Level.LoadLevel += OnLoadRoomLevel;
             On.Celeste.Level.End += OnLevelSessionEnd;
+            On.Celeste.Level.RegisterAreaComplete += OnRegisterAreaComplete;
 
             // Player only events
             On.Celeste.Player.Jump += OnJump;
@@ -85,6 +87,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             On.Celeste.Strawberry.OnPlayer += OnStrawberryBeingGrabbedByPlayer;
             On.Celeste.Player.DashBegin += Player_DashBegin;
             On.Celeste.Strawberry.OnCollect += OnStrawberryCollection;
+            On.Celeste.HeartGem.Collect += OnHeartGemCollection;
 
             // Global lifecycle events
             Everest.Events.Celeste.OnShutdown += OnEverestShutdown;
@@ -108,6 +111,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             On.Celeste.SaveData.StartSession -= OnLevelSessionStart;
             On.Celeste.Level.LoadLevel -= OnLoadRoomLevel;
             On.Celeste.Level.End -= OnLevelSessionEnd;
+            On.Celeste.Level.RegisterAreaComplete -= OnRegisterAreaComplete;
 
             // Player only events
             On.Celeste.Player.Jump -= OnJump;
@@ -115,6 +119,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             On.Celeste.Strawberry.OnPlayer -= OnStrawberryBeingGrabbedByPlayer;
             On.Celeste.Player.DashBegin -= Player_DashBegin;
             On.Celeste.Strawberry.OnCollect -= OnStrawberryCollection;
+            On.Celeste.HeartGem.Collect -= OnHeartGemCollection;
 
             // Global lifecycle events
             Everest.Events.Celeste.OnShutdown -= OnEverestShutdown;
@@ -330,6 +335,35 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                 Type = "StrawberryGrabbed",
                 IsGolden = strawberry.Golden,
                 Room = strawberry.SceneAs<Level>().Session.Level
+            });
+        }
+
+        private static async void OnHeartGemCollection(orig_Collect orig, global::Celeste.HeartGem self, global::Celeste.Player player)
+        {
+            orig(self, player);
+            if (SessionRAM?.CurrentSession is null) return;
+
+            SessionRAM.CurrentSession.AddOrUpdateRoomStat(SessionRAM.CurrentPlayingLevelArea, incrementHeartAchievedCount: true);
+            await DB.ChapterSide_SetHeartCollected(SessionRAM.CurrentSession.chapter_sid, SessionRAM.CurrentSession.side_id, true);
+
+            _ = TrackerWebSocketServer.BroadcastEvent(new
+            {
+                Type = "HeartCollected",
+                Room = SessionRAM.CurrentPlayingLevelArea?.Session.Level
+            });
+        }
+
+        private static void OnRegisterAreaComplete(orig_RegisterAreaComplete orig, global::Celeste.Level self)
+        {
+            orig(self);
+            if (SessionRAM?.CurrentSession is null) return;
+
+            _ = TrackerWebSocketServer.BroadcastEvent(new
+            {
+                Type = "ChapterCompleted",
+                SessionId = SessionRAM.CurrentSession.id,
+                Chapter = SessionRAM.CurrentChapter?.name,
+                Side = SessionRAM.CurrentSession.side_id
             });
         }
     }

@@ -64,6 +64,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                     side_id TEXT NOT NULL,
                     berries_available INTEGER NOT NULL,
                     berries_collected INTEGER NOT NULL,
+                    heart_collected INTEGER NOT NULL DEFAULT 0,
                     goldenstrawberry_achieved INTEGER NOT NULL DEFAULT 0,
                     goldenwingstrawberry_achieved INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY (chapter_sid, side_id),
@@ -233,6 +234,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
 
                 int berriesAvailable = sideProperties.TotalStrawberries;
                 int berriesCollected = sideStats.Strawberries.Count;
+                bool heartCollected = sideStats.HeartGem;
 
                 bool goldenAchieved = false;
                 if (goldenBerryEntity != null && sideStats.Strawberries.Contains(new global::Celeste.EntityID(goldenBerryEntity.Level.Name, goldenBerryEntity.ID)))
@@ -255,6 +257,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                     side_id = ((global::Celeste.AreaMode)i).ToStringId(),
                     berries_available = berriesAvailable,
                     berries_collected = berriesCollected,
+                    heart_collected = heartCollected,
                     goldenstrawberry_achieved = goldenAchieved,
                     goldenwingstrawberry_achieved = wingedAchieved
                 });
@@ -267,11 +270,12 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
         public async Task ChapterSide_Upsert(ChapterSide side)
         {
             string sql = @"
-                INSERT INTO ChapterSides (chapter_sid, side_id, berries_available, berries_collected, goldenstrawberry_achieved, goldenwingstrawberry_achieved)
-                VALUES (@chapter_sid, @side_id, @berries_available, @berries_collected, @goldenstrawberry_achieved, @goldenwingstrawberry_achieved)
+                INSERT INTO ChapterSides (chapter_sid, side_id, berries_available, berries_collected, heart_collected, goldenstrawberry_achieved, goldenwingstrawberry_achieved)
+                VALUES (@chapter_sid, @side_id, @berries_available, @berries_collected, @heart_collected, @goldenstrawberry_achieved, @goldenwingstrawberry_achieved)
                 ON CONFLICT(chapter_sid, side_id) DO UPDATE SET
                     berries_available = excluded.berries_available,
                     berries_collected = excluded.berries_collected,
+                    heart_collected = excluded.heart_collected,
                     goldenstrawberry_achieved = excluded.goldenstrawberry_achieved,
                     goldenwingstrawberry_achieved = excluded.goldenwingstrawberry_achieved;
             ";
@@ -281,9 +285,20 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                 side.side_id,
                 side.berries_available,
                 side.berries_collected,
+                heart_collected = side.heart_collected ? 1 : 0,
                 goldenstrawberry_achieved = side.goldenstrawberry_achieved ? 1 : 0,
                 goldenwingstrawberry_achieved = side.goldenwingstrawberry_achieved ? 1 : 0
             });
+        }
+
+        public async Task ChapterSide_SetHeartCollected(string chapter_sid, string side_id, bool collected)
+        {
+            string sql = @"
+                UPDATE ChapterSides 
+                SET heart_collected = @collected
+                WHERE chapter_sid = @chapter_sid AND side_id = @side_id;
+            ";
+            await _connection.ExecuteAsync(sql, new { chapter_sid, side_id, collected = collected ? 1 : 0 });
         }
 
         public async Task ChapterSide_IncrementBerriesCollected(string chapter_sid, string side_id)

@@ -73,6 +73,11 @@ These hooks update the **current active session** in memory, which is later flus
     - Increments `strawberries_achieved_in_room`.
     - Increments `berries_collected` in `ChapterSides` (Persistent sync).
     - Sets `is_goldenberry_completed` if golden.
+- **Heart Collect (`On.Celeste.HeartGem.Collect`):**
+    - Increments `hearts_achieved_in_room`.
+    - Sets `heart_collected` to 1 in `ChapterSides`.
+- **Chapter Completion (`On.Celeste.Level.RegisterAreaComplete`):**
+    - Broadcasts `ChapterCompleted` event.
 
 ### 4. Session Finalization (Persistence)
 Triggered when leaving a level or closing the game.
@@ -151,6 +156,7 @@ Tracks progress and berry counts for A, B, and C sides.
 | `side_id` | TEXT | **PRIMARY KEY (Part 2)**, FOREIGN KEY (`ChapterSideTypes.id`) |
 | `berries_available` | INTEGER | Total strawberries in this side |
 | `berries_collected` | INTEGER | Strawberries collected so far (Synced with SaveData) |
+| `heart_collected` | INTEGER | 1 if heart collected, else 0 |
 | `goldenstrawberry_achieved` | INTEGER | 1 if golden berry collected, else 0 |
 | `goldenwingstrawberry_achieved` | INTEGER | 1 if dashless golden berry collected, else 0 |
 
@@ -241,5 +247,15 @@ SELECT
     SUM(is_goldenberry_completed) as successful_completions
 FROM GameSessions
 WHERE is_goldenberry_attempt = 1;
+```
+
+### 6. Heart Completion Progress
+```sql
+SELECT 
+    chapter_sid, 
+    side_id, 
+    heart_collected
+FROM ChapterSides
+WHERE heart_collected = 1;
 ```
 

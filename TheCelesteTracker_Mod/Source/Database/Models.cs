@@ -101,6 +101,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
         public string side_id { get; set; } = "";
         public int berries_available { get; set; }
         public int berries_collected { get; set; }
+        public bool heart_collected { get; set; }
         public bool goldenstrawberry_achieved { get; set; }
         public bool goldenwingstrawberry_achieved { get; set; }
     }
