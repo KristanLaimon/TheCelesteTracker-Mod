@@ -2,7 +2,6 @@ using Celeste.Mod.TheCelesteTracker_Mod.Database;
 using Celeste.Mod.TheCelesteTracker_Mod.Source.services;
 using CommonCode;
 using Microsoft.Xna.Framework;
-using MonoMod.ModInterop;
 using System;
 using System.IO;
 using System.Linq;
@@ -71,7 +70,6 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
 
         public override void Load()
         {
-            typeof(TheCelesteTracker_ModExports).ModInterop();
 
             // WebSocket Server
             TrackerWebSocketServer.Start();
@@ -208,7 +206,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
 
         private static void SaveCurrentSessionSync(string savingReason)
         {
-            if (SessionRAM?.CurrentSession is null) 
+            if (SessionRAM?.CurrentSession is null)
             {
                 SessionRAM = null;
                 return;

@@ -65,6 +65,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                     berries_available INTEGER NOT NULL,
                     berries_collected INTEGER NOT NULL,
                     goldenstrawberry_achieved INTEGER NOT NULL DEFAULT 0,
+                    goldenwingstrawberry_achieved INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY (chapter_sid, side_id),
                     FOREIGN KEY (chapter_sid) REFERENCES Chapters(sid),
                     FOREIGN KEY (side_id) REFERENCES ChapterSideTypes(id)
@@ -164,9 +165,9 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                 foundActualCampaign = TheCelesteTracker_ModModule.SessionRAM.CurrentCampaign;
                 foundActualChapterLevel = TheCelesteTracker_ModModule.SessionRAM.CurrentChapter;
 
+                // Fallback if SessionRAM was partially initialized for some reason
                 if (saveFileFound == null || foundActualCampaign == null || foundActualChapterLevel == null)
                 {
-                    // Fallback if SessionRAM was partially initialized for some reason
                     return await Session_EnsureInDB_Full(session, saveData, currentSideId);
                 }
 
@@ -233,13 +234,24 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                 int berriesAvailable = sideProperties.TotalStrawberries;
                 int berriesCollected = sideStats.Strawberries.Count;
 
-                bool goldenAchieved = sideStats.BestDeaths == 0 && sideStats.Strawberries.Any(s =>
+                bool goldenAchieved = false;
+                //int totalDeathsInSession = TheCelesteTracker_ModModule.SessionRAM?.CurrentSession?.room_stats.Sum((stat) => stat.Value.deaths_in_room) ?? -1;
+                int totalDeathsInSession = 0; //DEBUG
+                if (totalDeathsInSession == 0 && goldenBerryEntity != null && sideStats.Strawberries.Contains(new global::Celeste.EntityID(goldenBerryEntity.Level.Name, goldenBerryEntity.ID)))
                 {
-                    // Logic to detect if a golden was collected in this side
-                    // This is a placeholder as the original also returned false
-                    return false; 
-                });
+                    goldenAchieved = true;
+                }
+
+                bool wingedAchieved = false;
+                //int totalJumpsInSession = TheCelesteTracker_ModModule.SessionRAM?.CurrentSession?.room_stats.Sum((stat) => stat.Value.jumps_in_room) ?? -1;
+                int totalJumpsInSession = 0; //DEBUG
+                if (totalJumpsInSession == 0 && wingedBerryEntity != null && sideStats.Strawberries.Contains(new global::Celeste.EntityID(wingedBerryEntity.Level.Name, wingedBerryEntity.ID)))
+                {
+                    wingedAchieved = true;
+                }
+
                 if (goldenAchieved) berriesCollected--;
+                if (wingedAchieved) berriesCollected--;
 
                 await ChapterSide_Upsert(new ChapterSide
                 {
@@ -247,7 +259,8 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                     side_id = ((global::Celeste.AreaMode)i).ToStringId(),
                     berries_available = berriesAvailable,
                     berries_collected = berriesCollected,
-                    goldenstrawberry_achieved = goldenAchieved
+                    goldenstrawberry_achieved = goldenAchieved,
+                    goldenwingstrawberry_achieved = wingedAchieved
                 });
             }
 
@@ -258,12 +271,13 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
         public async Task ChapterSide_Upsert(ChapterSide side)
         {
             string sql = @"
-                INSERT INTO ChapterSides (chapter_sid, side_id, berries_available, berries_collected, goldenstrawberry_achieved)
-                VALUES (@chapter_sid, @side_id, @berries_available, @berries_collected, @goldenstrawberry_achieved)
+                INSERT INTO ChapterSides (chapter_sid, side_id, berries_available, berries_collected, goldenstrawberry_achieved, goldenwingstrawberry_achieved)
+                VALUES (@chapter_sid, @side_id, @berries_available, @berries_collected, @goldenstrawberry_achieved, @goldenwingstrawberry_achieved)
                 ON CONFLICT(chapter_sid, side_id) DO UPDATE SET
                     berries_available = excluded.berries_available,
                     berries_collected = excluded.berries_collected,
-                    goldenstrawberry_achieved = excluded.goldenstrawberry_achieved;
+                    goldenstrawberry_achieved = excluded.goldenstrawberry_achieved,
+                    goldenwingstrawberry_achieved = excluded.goldenwingstrawberry_achieved;
             ";
             await _connection.ExecuteAsync(sql, new
             {
@@ -271,7 +285,8 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                 side.side_id,
                 side.berries_available,
                 side.berries_collected,
-                goldenstrawberry_achieved = side.goldenstrawberry_achieved ? 1 : 0
+                goldenstrawberry_achieved = side.goldenstrawberry_achieved ? 1 : 0,
+                goldenwingstrawberry_achieved = side.goldenwingstrawberry_achieved ? 1 : 0
             });
         }
 

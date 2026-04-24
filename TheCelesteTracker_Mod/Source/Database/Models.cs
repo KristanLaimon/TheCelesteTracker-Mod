@@ -102,6 +102,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
         public int berries_available { get; set; }
         public int berries_collected { get; set; }
         public bool goldenstrawberry_achieved { get; set; }
+        public bool goldenwingstrawberry_achieved { get; set; }
     }
 
     public class GameSessionChapterRoomStats
