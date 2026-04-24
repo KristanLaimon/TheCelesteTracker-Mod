@@ -1,7 +1,6 @@
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
@@ -11,170 +10,193 @@ using System.Threading.Tasks;
 #nullable enable
 namespace Celeste.Mod.TheCelesteTracker_Mod.Source.services
 {
+    /// <summary>
+    /// Handles WebSocket communication between the Celeste Mod and external tracking applications.
+    /// </summary>
     public static class TrackerWebSocketServer
     {
+        private const string LOG_TAG = "TheCelesteTracker_WS";
+        private const int START_PORT = 50500;
+        private const int MAX_PORT_ATTEMPTS = 100;
+
         private static HttpListener? _listener;
-        private static readonly List<WebSocket> _clients = new List<WebSocket>();
-        private static readonly object _clientsLock = new object();
+        private static readonly ConcurrentDictionary<WebSocket, byte> _clients = new();
         private static CancellationTokenSource? _cts;
 
         public static void Start()
         {
-            Stop(); // Ensure clean state
+            Stop();
             _cts = new CancellationTokenSource();
-            int port = 50500;
-            bool started = false;
-
-            while (!started && port < 50600)
+            
+            if (TryStartServer(out int boundPort))
             {
-                try
-                {
-                    _listener = new HttpListener();
-                    _listener.Prefixes.Add($"http://localhost:{port}/");
-                    _listener.Start();
-                    started = true;
-                    Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", $"WebSocket server started on ws://localhost:{port}/");
-                }
-                catch (HttpListenerException ex) when (ex.ErrorCode == 32)
-                {
-                    port++;
-                    _listener?.Close();
-                    _listener = null;
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log(LogLevel.Error, "TheCelesteTracker_Mod", $"WebSocket Start Error: {ex}");
-                    break;
-                }
-            }
-
-            if (started && _listener != null)
-            {
-                Task.Run(() => AcceptConnections(_cts.Token));
+                Logger.Log(LogLevel.Info, LOG_TAG, $"Server active at ws://localhost:{boundPort}/");
+                Task.Run(() => ListenLoop(_cts.Token));
             }
         }
 
         public static void Stop()
         {
             _cts?.Cancel();
+            _cts = null;
+
             _listener?.Stop();
             _listener?.Close();
             _listener = null;
 
-            lock (_clientsLock)
+            foreach (var client in _clients.Keys)
             {
-                foreach (var client in _clients)
-                {
-                    try { client.Dispose(); } catch { }
-                }
-                _clients.Clear();
+                CleanupClient(client);
             }
+            _clients.Clear();
         }
 
-        private static async Task AcceptConnections(CancellationToken token)
+        private static bool TryStartServer(out int port)
         {
-            if (_listener == null) return;
-            while (!token.IsCancellationRequested)
+            for (int i = 0; i < MAX_PORT_ATTEMPTS; i++)
             {
+                port = START_PORT + i;
                 try
                 {
-                    HttpListenerContext context = await _listener.GetContextAsync();
-                    if (context.Request.IsWebSocketRequest)
-                    {
-                        HttpListenerWebSocketContext wsContext = await context.AcceptWebSocketAsync(null);
-                        lock (_clientsLock)
-                        {
-                            _clients.Add(wsContext.WebSocket);
-                        }
-                        Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", "New WebSocket client connected.");
-
-                        // Send DB location and versions immediately
-                        _ = SendToClient(wsContext.WebSocket, new
-                        {
-                            Type = "DatabaseLocation",
-                            DatabasePath = TheCelesteTracker_ModModule.DbPath,
-                            EverestVersion = Everest.Version.ToString(),
-                            ModVersion = TheCelesteTracker_ModModule.Instance.Metadata.Version.ToString()
-                        });
-
-                        _ = HandleClient(wsContext.WebSocket, token);
-                    }
-                    else
-                    {
-                        context.Response.StatusCode = 400;
-                        context.Response.Close();
-                    }
+                    _listener = new HttpListener();
+                    _listener.Prefixes.Add($"http://localhost:{port}/");
+                    _listener.Start();
+                    return true;
+                }
+                catch (HttpListenerException ex) when (ex.ErrorCode == 32) // Port in use
+                {
+                    _listener?.Close();
                 }
                 catch (Exception ex)
                 {
-                    if (!token.IsCancellationRequested)
-                        Logger.Log(LogLevel.Error, "TheCelesteTracker_Mod", $"WebSocket Accept Error: {ex}");
+                    Logger.Log(LogLevel.Error, LOG_TAG, $"Critical failure during startup: {ex.Message}");
+                    break;
+                }
+            }
+
+            port = -1;
+            return false;
+        }
+
+        private static async Task ListenLoop(CancellationToken token)
+        {
+            while (_listener != null && !token.IsCancellationRequested)
+            {
+                try
+                {
+                    var context = await _listener.GetContextAsync();
+                    if (context.Request.IsWebSocketRequest)
+                    {
+                        _ = ProcessWebSocketRequest(context, token);
+                    }
+                    else
+                    {
+                        context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                        context.Response.Close();
+                    }
+                }
+                catch (Exception ex) when (!token.IsCancellationRequested)
+                {
+                    Logger.Log(LogLevel.Warn, LOG_TAG, $"Connection error: {ex.Message}");
                 }
             }
         }
 
-        private static async Task HandleClient(WebSocket ws, CancellationToken token)
+        private static async Task ProcessWebSocketRequest(HttpListenerContext context, CancellationToken token)
         {
-            byte[] buffer = new byte[1024];
             try
             {
-                while (ws.State == WebSocketState.Open && !token.IsCancellationRequested)
+                var wsContext = await context.AcceptWebSocketAsync(subProtocol: null);
+                var socket = wsContext.WebSocket;
+
+                _clients.TryAdd(socket, 0);
+                Logger.Log(LogLevel.Info, LOG_TAG, "Client connected.");
+
+                await SendHandshake(socket);
+                await KeepAliveClient(socket, token);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(LogLevel.Verbose, LOG_TAG, $"Handshake failed: {ex.Message}");
+            }
+        }
+
+        private static async Task SendHandshake(WebSocket socket)
+        {
+            await SendToClient(socket, new
+            {
+                Type = "DatabaseLocation",
+                DatabasePath = TheCelesteTracker_ModModule.DbPath,
+                EverestVersion = Everest.Version.ToString(),
+                ModVersion = TheCelesteTracker_ModModule.Instance.Metadata.Version.ToString()
+            });
+        }
+
+        private static async Task KeepAliveClient(WebSocket socket, CancellationToken token)
+        {
+            var buffer = new byte[1024];
+            try
+            {
+                while (socket.State == WebSocketState.Open && !token.IsCancellationRequested)
                 {
-                    var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), token);
+                    var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), token);
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", token);
+                        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", token);
                     }
                 }
             }
-            catch { }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                Logger.Log(LogLevel.Verbose, LOG_TAG, $"Client dropped: {ex.Message}");
+            }
             finally
             {
-                lock (_clientsLock) { _clients.Remove(ws); }
-                ws.Dispose();
-                Logger.Log(LogLevel.Info, "TheCelesteTracker_Mod", "WebSocket client disconnected.");
+                CleanupClient(socket);
+            }
+        }
+
+        private static void CleanupClient(WebSocket socket)
+        {
+            if (_clients.TryRemove(socket, out _))
+            {
+                try { socket.Dispose(); } catch { }
+                Logger.Log(LogLevel.Info, LOG_TAG, "Client disconnected.");
             }
         }
 
         public static async Task BroadcastEvent(object payload)
         {
-            string json = JsonConvert.SerializeObject(payload);
-            byte[] buffer = Encoding.UTF8.GetBytes(json);
-            var segment = new ArraySegment<byte>(buffer);
-
-            WebSocket[] activeClients;
-            lock (_clientsLock)
+            var buffer = SerializeToBuffer(payload);
+            foreach (var client in _clients.Keys)
             {
-                activeClients = _clients.Where(c => c.State == WebSocketState.Open).ToArray();
-            }
-
-            if (activeClients.Length == 0) return;
-
-            foreach (var client in activeClients)
-            {
-                await SendToClient(client, segment);
+                await SendBuffer(client, buffer);
             }
         }
 
-        private static async Task SendToClient(WebSocket client, object payload)
+        private static async Task SendToClient(WebSocket socket, object payload)
         {
-            string json = JsonConvert.SerializeObject(payload);
-            byte[] buffer = Encoding.UTF8.GetBytes(json);
-            await SendToClient(client, new ArraySegment<byte>(buffer));
+            await SendBuffer(socket, SerializeToBuffer(payload));
         }
 
-        private static async Task SendToClient(WebSocket client, ArraySegment<byte> segment)
+        private static ArraySegment<byte> SerializeToBuffer(object payload)
         {
+            string json = JsonConvert.SerializeObject(payload);
+            return new ArraySegment<byte>(Encoding.UTF8.GetBytes(json));
+        }
+
+        private static async Task SendBuffer(WebSocket socket, ArraySegment<byte> buffer)
+        {
+            if (socket.State != WebSocketState.Open) return;
+
             try
             {
-                if (client.State == WebSocketState.Open)
-                {
-                    await client.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
-                }
+                await socket.SendAsync(buffer, WebSocketMessageType.Text, endOfMessage: true, CancellationToken.None);
             }
             catch (Exception ex)
             {
-                Logger.Log(LogLevel.Verbose, "TheCelesteTracker_Mod", $"Failed to send to client: {ex.Message}");
+                Logger.Log(LogLevel.Verbose, LOG_TAG, $"Send failed: {ex.Message}");
             }
         }
     }

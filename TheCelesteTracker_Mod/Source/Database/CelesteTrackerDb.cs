@@ -235,17 +235,13 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                 int berriesCollected = sideStats.Strawberries.Count;
 
                 bool goldenAchieved = false;
-                //int totalDeathsInSession = TheCelesteTracker_ModModule.SessionRAM?.CurrentSession?.room_stats.Sum((stat) => stat.Value.deaths_in_room) ?? -1;
-                int totalDeathsInSession = 0; //DEBUG
-                if (totalDeathsInSession == 0 && goldenBerryEntity != null && sideStats.Strawberries.Contains(new global::Celeste.EntityID(goldenBerryEntity.Level.Name, goldenBerryEntity.ID)))
+                if (goldenBerryEntity != null && sideStats.Strawberries.Contains(new global::Celeste.EntityID(goldenBerryEntity.Level.Name, goldenBerryEntity.ID)))
                 {
                     goldenAchieved = true;
                 }
 
                 bool wingedAchieved = false;
-                //int totalJumpsInSession = TheCelesteTracker_ModModule.SessionRAM?.CurrentSession?.room_stats.Sum((stat) => stat.Value.jumps_in_room) ?? -1;
-                int totalJumpsInSession = 0; //DEBUG
-                if (totalJumpsInSession == 0 && wingedBerryEntity != null && sideStats.Strawberries.Contains(new global::Celeste.EntityID(wingedBerryEntity.Level.Name, wingedBerryEntity.ID)))
+                if (wingedBerryEntity != null && sideStats.Strawberries.Contains(new global::Celeste.EntityID(wingedBerryEntity.Level.Name, wingedBerryEntity.ID)))
                 {
                     wingedAchieved = true;
                 }
