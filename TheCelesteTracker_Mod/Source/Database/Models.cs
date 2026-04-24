@@ -67,7 +67,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
             }
             else
             {
-                var currentSession = TheCelesteTracker_ModModule.SessionRAM.CurrentSession;
+                var currentSession = TheCelesteTracker_ModModule.SessionRAM?.CurrentSession;
                 if (currentSession is null)
                     return null;
 

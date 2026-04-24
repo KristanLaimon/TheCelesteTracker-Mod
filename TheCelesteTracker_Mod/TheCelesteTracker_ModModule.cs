@@ -42,7 +42,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         public override Type SaveDataType => typeof(TheCelesteTracker_ModModuleSaveData);
         public static TheCelesteTracker_ModModuleSaveData ModSaveData => (TheCelesteTracker_ModModuleSaveData)Instance._SaveData;
 
-        public static SessionRAMData SessionRAM = new();
+        public static SessionRAMData? SessionRAM = null;
         public static ISimpleLogger l = new TheCelesteModTrackerLogger();
         public static CelesteTrackerDb DB = null!;
         public static string DbPath = "";
@@ -130,12 +130,14 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             orig(self, session);
 
             var result = await DB.Session_EnsureInDB(session);
-            SessionRAM.CurrentSession = result.Session;
-            SessionRAM.CurrentSaveData = result.SaveData;
-            SessionRAM.CurrentCampaign = result.Campaign;
-            SessionRAM.CurrentChapter = result.Chapter;
-
-            SessionRAM.SessionStartTicks = session.Time;
+            SessionRAM = new SessionRAMData
+            {
+                CurrentSession = result.Session,
+                CurrentSaveData = result.SaveData,
+                CurrentCampaign = result.Campaign,
+                CurrentChapter = result.Chapter,
+                SessionStartTicks = session.Time
+            };
 
             l.Log(new { Event = "OnLevelStart" });
 
@@ -148,14 +150,14 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
 
         public static async void OnLoadRoomLevel(orig_LoadLevel orig, global::Celeste.Level self, global::Celeste.Player.IntroTypes playerIntro, bool isFromLoader)
         {
-            string lastRoom = SessionRAM.CurrentPlayingLevelArea?.Session.Level ?? "";
+            string lastRoom = SessionRAM?.CurrentPlayingLevelArea?.Session.Level ?? "";
             orig(self, playerIntro, isFromLoader);
-            SessionRAM.CurrentPlayingLevelArea = self;
+            if (SessionRAM != null) SessionRAM.CurrentPlayingLevelArea = self;
 
             if (lastRoom == self.Session.Level) return;
 
             l.Log(new { Event = "OnNewRoomLoaded", Room = self.Session.Level });
-            if (SessionRAM.CurrentSession is null) return;
+            if (SessionRAM?.CurrentSession is null) return;
 
             SessionRAM.CurrentSession.AddOrUpdateRoomStat(self);
 
@@ -174,17 +176,20 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             _ = TrackerWebSocketServer.BroadcastEvent(new
             {
                 Type = "SessionExited",
-                SessionId = SessionRAM.CurrentSession?.id
+                SessionId = SessionRAM?.CurrentSession?.id
             });
 
-            if (SessionRAM.CurrentSession is not null)
+            if (SessionRAM?.CurrentSession is not null)
             {
                 int totalJumpsInCurrentSession = SessionRAM.CurrentSession.room_stats.Values.Sum(roomStatistic => roomStatistic.jumps_in_room);
                 int totalDashesInCurrentSession = SessionRAM.CurrentSession.room_stats.Values.Sum(roomStatistic => roomStatistic.dashes_in_room);
                 int totalDeathsInCurrentSeassion = SessionRAM.CurrentSession.room_stats.Values.Sum(roomStatistic => roomStatistic.deaths_in_room);
 
                 if (totalJumpsInCurrentSession == 0 && totalDashesInCurrentSession == 0 && totalDeathsInCurrentSeassion == 0)
+                {
+                    SessionRAM = null;
                     return;
+                }
             }
             SaveCurrentSessionSync("Current session ended");
         }
@@ -203,7 +208,11 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
 
         private static void SaveCurrentSessionSync(string savingReason)
         {
-            if (SessionRAM.CurrentSession is null) return;
+            if (SessionRAM?.CurrentSession is null) 
+            {
+                SessionRAM = null;
+                return;
+            }
             try
             {
                 if (SessionRAM.CurrentPlayingLevelArea is not null)
@@ -215,12 +224,14 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
 
                 DB.GameSession_Insert(SessionRAM.CurrentSession).GetAwaiter().GetResult();
                 l.Log(new { Event = "Storing current session in DB [SUCCESS]", TriggerReason = savingReason, SessionId = SessionRAM.CurrentSession.id });
-
-                SessionRAM.CurrentSession = null;
             }
             catch (Exception ex)
             {
                 l.Log(new { Event = "Storing current session in db [FAILED]", Reason = savingReason, Error = ex.Message });
+            }
+            finally
+            {
+                SessionRAM = null;
             }
         }
 
@@ -229,7 +240,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         private static void OnJump(orig_Jump orig, global::Celeste.Player self, bool particles, bool playSfx)
         {
             orig(self, particles, playSfx);
-            if (SessionRAM.CurrentSession is null) return;
+            if (SessionRAM?.CurrentSession is null) return;
 
             SessionRAM.CurrentSession.AddOrUpdateRoomStat(SessionRAM.CurrentPlayingLevelArea, incrementJumpCount: true);
 
@@ -245,7 +256,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         {
             global::Celeste.PlayerDeadBody body = orig(self, direction, evenIfInvincible, registerDeathInStats);
 
-            if (SessionRAM.CurrentSession is not null)
+            if (SessionRAM?.CurrentSession is not null)
             {
                 SessionRAM.CurrentSession.AddOrUpdateRoomStat(SessionRAM.CurrentPlayingLevelArea, incrementDeathCount: true);
 
@@ -263,7 +274,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         private static void Player_DashBegin(orig_DashBegin orig, global::Celeste.Player self)
         {
             orig(self);
-            if (SessionRAM.CurrentSession is null) return;
+            if (SessionRAM?.CurrentSession is null) return;
 
             SessionRAM.CurrentSession.AddOrUpdateRoomStat(SessionRAM.CurrentPlayingLevelArea, incrementDashCount: true);
 
@@ -280,7 +291,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             bool isAlreadyCollectedBefore = global::Celeste.SaveData.Instance.CheckStrawberry(strawberry.ID);
             orig(strawberry);
 
-            if (SessionRAM.CurrentSession is null) return;
+            if (SessionRAM?.CurrentSession is null) return;
 
             if (strawberry.Golden)
             {

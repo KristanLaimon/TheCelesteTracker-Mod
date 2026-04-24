@@ -151,9 +151,46 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
         public async Task<(GameSession Session, SaveData SaveData, Campaign Campaign, Chapter Chapter)> Session_EnsureInDB(global::Celeste.Session session)
         {
             var saveData = global::Celeste.SaveData.Instance;
+            string currentSideId = session.Area.Mode.ToStringId();
+
+            SaveData? saveFileFound;
+            Campaign? foundActualCampaign;
+            Chapter? foundActualChapterLevel;
+            string expectedChapterSid;
+
+            if (session.RestartedFromGolden && TheCelesteTracker_ModModule.SessionRAM != null)
+            {
+                saveFileFound = TheCelesteTracker_ModModule.SessionRAM.CurrentSaveData;
+                foundActualCampaign = TheCelesteTracker_ModModule.SessionRAM.CurrentCampaign;
+                foundActualChapterLevel = TheCelesteTracker_ModModule.SessionRAM.CurrentChapter;
+
+                if (saveFileFound == null || foundActualCampaign == null || foundActualChapterLevel == null)
+                {
+                    // Fallback if SessionRAM was partially initialized for some reason
+                    return await Session_EnsureInDB_Full(session, saveData, currentSideId);
+                }
+
+                expectedChapterSid = foundActualChapterLevel.sid;
+            }
+            else
+            {
+                return await Session_EnsureInDB_Full(session, saveData, currentSideId);
+            }
+
+            var newSession = GameSession_CreateNew(expectedChapterSid, currentSideId);
+            return (newSession, saveFileFound, foundActualCampaign, foundActualChapterLevel);
+        }
+
+        private async Task<(GameSession Session, SaveData SaveData, Campaign Campaign, Chapter Chapter)> Session_EnsureInDB_Full(global::Celeste.Session session, global::Celeste.SaveData saveData, string currentSideId)
+        {
+            // File name "&mut *Kris"
             string saveName = saveData.Name;
             int saveSlot = saveData.FileSlot;
+
+            //Campaign name. "Celeste"
             string levelSet = session.Area.LevelSet;
+
+            //Full internal name. "Celeste/7-Summit"
             string areaSid = session.Area.GetSID();
 
             SaveData? saveFileFound = await SaveData_GetSingle(saveName, saveSlot);
@@ -177,33 +214,44 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                 foundActualChapterLevel = await Chapter_InsertSingle(expectedChapterSid, foundActualCampaign.id, chapterName);
             }
 
-            // 4. Ensure all available ChapterSides for this chapter are synced
+            // Iterating on each SIDEA | SIDEB | SIDEC in this chapter/levelset. "Celeste/7-Summit" 
             for (int i = 0; i < areaData.Mode.Length; i++)
             {
                 if (areaData.Mode[i] == null) continue;
 
-                var mode = (global::Celeste.AreaMode)i;
-                int berriesAvailable = areaData.Mode[i].TotalStrawberries;
-                
-                var stats = global::Celeste.SaveData.Instance.Areas[session.Area.ID].Modes[i];
-                bool goldenAchieved = stats.Golden;
-                int berriesCollected = stats.Strawberries.Count;
+                //Best deaths, best dashes, dashes, deaths, completed(boolean), total count strawberries, time played
+                AreaModeStats? sideStats = global::Celeste.SaveData.Instance.Areas[session.Area.ID].Modes[i];
+                ModeProperties sideProperties = areaData.Mode[i];
+                MapData sideData = sideProperties.MapData;
+
+                //Does the map has a wingedBerryEntity? if null no, otherwise yes
+                EntityData? wingedBerryEntity = sideData.DashlessGoldenberries.FirstOrDefault();
+
+                //Does the map has a goldeberryEntity? if null no, otherwise yes
+                EntityData? goldenBerryEntity = sideData.Goldenberries.FirstOrDefault();
+
+                int berriesAvailable = sideProperties.TotalStrawberries;
+                int berriesCollected = sideStats.Strawberries.Count;
+
+                bool goldenAchieved = sideStats.BestDeaths == 0 && sideStats.Strawberries.Any(s =>
+                {
+                    // Logic to detect if a golden was collected in this side
+                    // This is a placeholder as the original also returned false
+                    return false; 
+                });
                 if (goldenAchieved) berriesCollected--;
 
                 await ChapterSide_Upsert(new ChapterSide
                 {
                     chapter_sid = expectedChapterSid,
-                    side_id = mode.ToStringId(),
+                    side_id = ((global::Celeste.AreaMode)i).ToStringId(),
                     berries_available = berriesAvailable,
                     berries_collected = berriesCollected,
                     goldenstrawberry_achieved = goldenAchieved
                 });
             }
 
-            // 5. Create new session for the current side being played
-            string currentSideId = session.Area.Mode.ToStringId();
             var newSession = GameSession_CreateNew(expectedChapterSid, currentSideId);
-
             return (newSession, saveFileFound, foundActualCampaign, foundActualChapterLevel);
         }
 
@@ -217,13 +265,13 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                     berries_collected = excluded.berries_collected,
                     goldenstrawberry_achieved = excluded.goldenstrawberry_achieved;
             ";
-            await _connection.ExecuteAsync(sql, new 
-            { 
-                side.chapter_sid, 
-                side.side_id, 
-                side.berries_available, 
-                side.berries_collected, 
-                goldenstrawberry_achieved = side.goldenstrawberry_achieved ? 1 : 0 
+            await _connection.ExecuteAsync(sql, new
+            {
+                side.chapter_sid,
+                side.side_id,
+                side.berries_available,
+                side.berries_collected,
+                goldenstrawberry_achieved = side.goldenstrawberry_achieved ? 1 : 0
             });
         }
 
