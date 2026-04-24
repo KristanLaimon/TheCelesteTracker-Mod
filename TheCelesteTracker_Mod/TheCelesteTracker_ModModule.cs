@@ -183,6 +183,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
                 int totalDashesInCurrentSession = SessionRAM.CurrentSession.room_stats.Values.Sum(roomStatistic => roomStatistic.dashes_in_room);
                 int totalDeathsInCurrentSeassion = SessionRAM.CurrentSession.room_stats.Values.Sum(roomStatistic => roomStatistic.deaths_in_room);
 
+                //If player entered in level and didn't anything there  (no jumps, no dashes, no deaths),lets forgive hima and not register this as a "session" (to avoid accidental onChapterAreaLevel enter)
                 if (totalJumpsInCurrentSession == 0 && totalDashesInCurrentSession == 0 && totalDeathsInCurrentSeassion == 0)
                 {
                     SessionRAM = null;
@@ -333,85 +334,3 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
         }
     }
 }
-//private void OnFileSelectSlotCreateButtons(List<OuiFileSelectSlot.Button> buttons, OuiFileSelectSlot slot, EverestModuleSaveData modSaveData, bool fileExists)
-//{
-//    // 'slot' es el objeto visual de la ranura (ranura 0, 1, 2...)
-//    // 'slot.SaveData' contiene la información de vainilla (muertes, tiempo, etc.)
-//    Loggy.Log(new
-//    {
-//        Event = "OnFileSelectSlot",
-//        OuiFileSelectSlotListInfoRaw = buttons.Select((button) =>
-//        {
-//            return new
-//            {
-//                label = button.Label,
-//                scale = button.Scale,
-//            };
-//        })
-//    });
-
-//    if (fileExists && slot.SaveData != null)
-//    {
-//        int index = slot.buttonIndex;
-//        long muertes = slot.SaveData.TotalDeaths;
-//        string nombre = slot.SaveData.Name;
-
-//        Logger.Log(LogLevel.Info, "MiTracker", $"Visualizando Slot {index} ({nombre}): {muertes} muertes totales.");
-//    }
-//}
-
-
-
-//private static void OnLevelBegin(On.Celeste.Level.orig_Begin orig, Level self)
-//{
-//    orig(self);
-//    var ev = new
-//    {
-//        Type = "LevelBegin",
-//        AreaSid = self.Session.Area.GetSID(),
-//        ChapterName = Dialog.Clean(AreaData.Get(self.Session.Area).Name),
-//        RoomName = self.Session.Level,
-//        Mode = self.Session.Area.Mode.ToString()
-//    };
-//    l.Log(ev);
-//}
-
-
-
-//SessionRAM.CurrentSession.RoomStats.Add(new GameSessionChapterRoomStats
-//{
-//    RoomName = firstRoom.Name,
-//    Deaths = SessionRAM.CurrentRoomDeaths = 0
-
-//});
-
-/// <summary>
-/// Not a DATABASE table, just a helpful DTO for internal mod use.
-/// </summary>
-//public record class LocalChapterRoomInfo
-//{
-//    public required int Deaths;
-//    public required int Dashes;
-//    public required int StrawberriesAchieved;
-//    public required int HeartsAchieved;
-//}
-
-///// <summary>
-///// When going to next room only in same chapter (Moving across rooms)
-///// </summary>
-//private static void OnNextRoom(orig_NextLevel orig, global::Celeste.Level self, Vector2 at, Vector2 dir)
-//{
-//    orig(self, at, dir);
-//    l.Log(new { Event = "Level_NextLevel", RoomInfo = new { CurrentDeaths = self.Session.Deaths } });//Full total count of datasave for some reason
-//}
-
-
-//ame chapter(Moving across rooms)
-///// </summary>
-//private static void OnNextRoom(orig_NextLevel orig, global::Celeste.Level self, Vector2 at, Vector2 dir)
-//{
-//    orig(self, at, dir);
-//    l.Log(new { Event = "Level_NextLevel", RoomInfo = new { CurrentDeaths = self.Session.Deaths } });//Full total count of datasave for some reason
-//}
-
-

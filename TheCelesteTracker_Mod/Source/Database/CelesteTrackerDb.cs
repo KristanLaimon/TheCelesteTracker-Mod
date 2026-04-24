@@ -384,7 +384,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod.Database
                 {
                     "SIDEB" => 1,
                     "SIDEC" => 2,
-                    _ => 0
+                    _ => 0 //SIDEA by default
                 };
                 var levels = (areaData != null && areaData.Mode.Length > modeIndex) ? areaData.Mode[modeIndex]?.MapData?.Levels : null;
 

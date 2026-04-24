@@ -22,22 +22,25 @@ The schema follows a strict hierarchical tree from the user down to individual r
 
 ```mermaid
 erDiagram
-    users ||--o{ save_datas : "has"
-    save_datas ||--o{ campaigns : "contains"
-    campaigns ||--o{ chapters : "includes"
-    chapters ||--o{ chapter_sides : "has sides"
-    chapters ||--o{ chapter_rooms : "defines rooms"
-    chapter_sides ||--o{ game_sessions : "tracked in"
-    game_sessions ||--o{ game_session_chapter_room_stats : "records"
+    Users ||--o{ SaveDatas : "has"
+    SaveDatas ||--o{ Campaigns : "contains"
+    Campaigns ||--o{ Chapters : "includes"
+    Chapters ||--o{ ChapterSides : "has sides"
+    ChapterSides ||--o{ ChapterSideRooms : "defines rooms"
+    ChapterSides ||--o{ GameSessions : "tracked in"
+    GameSessions ||--o{ GameSessionChapterRoomStats : "records"
+    ChapterSideRooms ||--o{ GameSessionChapterRoomStats : "referenced by"
+    ChapterSideTypes ||--o{ ChapterSides : "defines side type"
 ```
 
 ### Hierarchy Breakdown:
-1.  **Global Level:** `users` -> `save_datas`. One system user can have multiple Celeste save slots.
-2.  **Campaign Level:** `save_datas` -> `campaigns`. Each save slot tracks multiple "Campaigns" (LevelSets like Vanilla, SJ, etc.).
-3.  **Chapter Level:** `campaigns` -> `chapters`. Each campaign contains its unique set of chapters.
-4.  **Structure Level:** `chapters` acts as a parent for `chapter_sides` (A/B/C) and `chapter_rooms` (static room definitions).
-5.  **Activity Level:** `chapter_sides` -> `game_sessions`. Every time you enter a level, a session is created.
-6.  **Granular Level:** `game_sessions` -> `game_session_chapter_room_stats`. Per-room performance is logged within the context of a session.
+1.  **Global Level:** `Users` -> `SaveDatas`. One system user can have multiple Celeste save slots.
+2.  **Campaign Level:** `SaveDatas` -> `Campaigns`. Each save slot tracks multiple "Campaigns" (LevelSets like Vanilla, SJ, etc.).
+3.  **Chapter Level:** `Campaigns` -> `Chapters`. Each campaign contains its unique set of chapters.
+4.  **Structure Level:** `Chapters` acts as a parent for `ChapterSides` (SIDEA/SIDEB/SIDEC).
+5.  **Room Level:** `ChapterSides` defines `ChapterSideRooms` (static room definitions per side).
+6.  **Activity Level:** `ChapterSides` -> `GameSessions`. Every time you enter a level, a session is created for that specific side.
+7.  **Granular Level:** `GameSessions` -> `GameSessionChapterRoomStats`. Per-room performance is logged within the context of a session.
 
 ## Event-Driven Management
 
@@ -48,17 +51,17 @@ Triggered when a chapter is entered from the Map or a Save Slot is loaded.
 - **Hook:** `On.Celeste.SaveData.StartSession`
 - **Action:** Calls `DB.Session_EnsureInDB`.
 - **Managed Tables:** 
-    - `users`: Verified/Created once per mod lifecycle.
-    - `save_datas`: Synced with current slot.
-    - `campaigns`: Creates entry for current LevelSet.
-    - `chapters`: Generates the composite SID.
-    - `chapter_sides`: Upserts available berries and current progress.
+    - `Users`: Verified/Created once per mod lifecycle.
+    - `SaveDatas`: Synced with current slot.
+    - `Campaigns`: Creates entry for current LevelSet.
+    - `Chapters`: Generates the composite SID.
+    - `ChapterSides`: Upserts available berries and current progress.
 
 ### 2. Room Transitions (Metadata Collection)
 Triggered when entering a new room.
 - **Hook:** `On.Celeste.Level.LoadLevel`
-- **Action:** Logs entry into a new room and initializes its entry in `chapter_rooms` (if missing).
-- **Managed Tables:** `chapter_rooms`, `game_session_chapter_room_stats` (in-memory initialization).
+- **Action:** Logs entry into a new room and initializes its entry in `ChapterSideRooms` (if missing).
+- **Managed Tables:** `ChapterSideRooms`, `GameSessionChapterRoomStats` (in-memory initialization).
 
 ### 3. Gameplay Activity (Live Increments)
 These hooks update the **current active session** in memory, which is later flushed to the DB.
@@ -68,7 +71,7 @@ These hooks update the **current active session** in memory, which is later flus
 - **Strawberry Grab (`On.Celeste.Strawberry.OnPlayer`):** Sets `is_goldenberry_attempt` if golden.
 - **Strawberry Collect (`On.Celeste.Strawberry.OnCollect`):** 
     - Increments `strawberries_achieved_in_room`.
-    - Increments `berries_collected` in `chapter_sides` (Persistent sync).
+    - Increments `berries_collected` in `ChapterSides` (Persistent sync).
     - Sets `is_goldenberry_completed` if golden.
 
 ### 4. Session Finalization (Persistence)
@@ -76,8 +79,8 @@ Triggered when leaving a level or closing the game.
 - **Hooks:** `On.Celeste.Level.End`, `Everest.Events.Celeste.OnShutdown`.
 - **Action:** Flushes the entire `GameSession` DTO to the database in a single transaction.
 - **Managed Tables:**
-    - `game_sessions`: Final duration and golden status recorded.
-    - `game_session_chapter_room_stats`: All accumulated room stats are inserted.
+    - `GameSessions`: Final duration and golden status recorded.
+    - `GameSessionChapterRoomStats`: All accumulated room stats are inserted.
 
 ---
 
@@ -92,7 +95,7 @@ Represents the "LevelSet" in Everest.
 To ensure uniqueness across multiple save slots and campaigns, the database uses a composite-like string:
 - **Format:** `{CampaignTableID}:{InternalSID}`
 - **Example:** `1:Celeste/1-ForsakenCity`
-- **Note:** `CampaignTableID` is the integer primary key from the `campaigns` table.
+- **Note:** `CampaignTableID` is the integer primary key from the `Campaigns` table.
 
 ### Side ID
 Represents the difficulty mode of the chapter.
@@ -103,75 +106,85 @@ Represents the difficulty mode of the chapter.
 
 ## Tables
 
-### `users`
+### `Users`
 | Column | Type | Notes |
 | :--- | :--- | :--- |
 | `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT |
-| `name` | TEXT | UNIQUE, defaults to System Username |
+| `name` | TEXT | UNIQUE, NOT NULL |
 
-### `save_datas`
+### `ChapterSideTypes`
+Lookup table for side identifiers.
+| Column | Type | Notes |
+| :--- | :--- | :--- |
+| `id` | CHAR(5) | PRIMARY KEY (`SIDEA`, `SIDEB`, `SIDEC`) |
+
+### `SaveDatas`
 Links statistics to specific Celeste save slots.
 | Column | Type | Notes |
 | :--- | :--- | :--- |
 | `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT |
-| `user_id` | INTEGER | FOREIGN KEY (`users.id`) |
+| `user_id` | INTEGER | FOREIGN KEY (`Users.id`) |
 | `slot_number` | INTEGER | Save slot (0, 1, 2, ...) |
 | `file_name` | TEXT | Name of the save file (e.g., "Madeline") |
 
-### `campaigns`
+### `Campaigns`
 Tracks vanilla Celeste and mods separately per save file.
 | Column | Type | Notes |
 | :--- | :--- | :--- |
 | `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT |
-| `save_data_id` | INTEGER | FOREIGN KEY (`save_datas.id`) |
+| `save_data_id` | INTEGER | FOREIGN KEY (`SaveDatas.id`) |
 | `campaign_name_id` | TEXT | LevelSet ID (e.g., "Celeste", "StrawberryJam2023") |
 
-### `chapters`
+### `Chapters`
 Individual levels within a campaign.
 | Column | Type | Notes |
 | :--- | :--- | :--- |
 | `sid` | TEXT | **PRIMARY KEY**. Format: `{campaign_id}:{internal_sid}` |
-| `campaign_id` | INTEGER | FOREIGN KEY (`campaigns.id`) |
-| `name` | TEXT | Display name (Optional) |
+| `campaign_id` | INTEGER | FOREIGN KEY (`Campaigns.id`) |
+| `name` | TEXT | Display name |
 
-### `chapter_sides`
+### `ChapterSides`
 Tracks progress and berry counts for A, B, and C sides.
 | Column | Type | Notes |
 | :--- | :--- | :--- |
-| `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT |
-| `chapter_sid` | TEXT | FOREIGN KEY (`chapters.sid`) |
-| `side_id` | TEXT | "A", "B", or "C" |
+| `chapter_sid` | TEXT | **PRIMARY KEY (Part 1)**, FOREIGN KEY (`Chapters.sid`) |
+| `side_id` | TEXT | **PRIMARY KEY (Part 2)**, FOREIGN KEY (`ChapterSideTypes.id`) |
 | `berries_available` | INTEGER | Total strawberries in this side |
 | `berries_collected` | INTEGER | Strawberries collected so far (Synced with SaveData) |
+| `goldenstrawberry_achieved` | INTEGER | 1 if golden berry collected, else 0 |
+| `goldenwingstrawberry_achieved` | INTEGER | 1 if dashless golden berry collected, else 0 |
 
-### `chapter_rooms`
-Metadata for rooms within a chapter.
+### `ChapterSideRooms`
+Metadata for rooms within a chapter side.
 | Column | Type | Notes |
 | :--- | :--- | :--- |
-| `chapter_sid` | TEXT | PRIMARY KEY (Part 1), FOREIGN KEY (`chapters.sid`) |
-| `name` | TEXT | PRIMARY KEY (Part 2), Room ID (e.g., "a-00", "01-entry") |
+| `chapter_sid` | TEXT | **PRIMARY KEY (Part 1)**, FOREIGN KEY (`ChapterSides.chapter_sid`) |
+| `side_id` | TEXT | **PRIMARY KEY (Part 2)**, FOREIGN KEY (`ChapterSides.side_id`) |
+| `name` | TEXT | **PRIMARY KEY (Part 3)**, Room ID (e.g., "a-00", "01-entry") |
 | `order` | INTEGER | Room order in the MapData |
 | `strawberries_available`| INTEGER | Number of berries inside this specific room |
 
-### `game_sessions`
+### `GameSessions`
 A single play session of a chapter side.
 | Column | Type | Notes |
 | :--- | :--- | :--- |
 | `id` | TEXT | **PRIMARY KEY** (GUID). Unique session identifier. |
-| `chapter_side_id` | INTEGER | FOREIGN KEY (`chapter_sides.id`) |
+| `chapter_sid` | TEXT | FOREIGN KEY (`ChapterSides.chapter_sid`) |
+| `side_id` | TEXT | FOREIGN KEY (`ChapterSides.side_id`) |
 | `date_time_start` | TEXT | ISO8601 start timestamp |
 | `duration_ms` | INTEGER | Total time spent in milliseconds |
 | `is_goldenberry_attempt`| INTEGER | 1 if carrying a golden berry, else 0 |
 | `is_goldenberry_completed`| INTEGER | 1 if completed with golden berry, else 0 |
 
-### `game_session_chapter_room_stats`
+### `GameSessionChapterRoomStats`
 Granular per-room stats recorded during a session.
 | Column | Type | Notes |
 | :--- | :--- | :--- |
 | `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT |
-| `gamesession_id` | TEXT | FOREIGN KEY (`game_sessions.id`) |
-| `room_name` | TEXT | ID of the room |
-| `visited_order` | INTEGER | Sequence in which rooms were visited |
+| `gamesession_id` | TEXT | FOREIGN KEY (`GameSessions.id`) |
+| `chapter_sid` | TEXT | FOREIGN KEY (`ChapterSideRooms.chapter_sid`) |
+| `side_id` | TEXT | FOREIGN KEY (`ChapterSideRooms.side_id`) |
+| `room_name` | TEXT | FOREIGN KEY (`ChapterSideRooms.name`) |
 | `deaths_in_room` | INTEGER | Death count in this room |
 | `dashes_in_room` | INTEGER | Dash count in this room |
 | `jumps_in_room` | INTEGER | Jump count in this room |
@@ -186,7 +199,7 @@ Granular per-room stats recorded during a session.
 ```sql
 SELECT 
     SUM(duration_ms) / 1000 / 60 / 60 AS total_hours 
-FROM game_sessions;
+FROM GameSessions;
 ```
 
 ### 2. Time Breakdown: Vanilla vs Modded
@@ -194,22 +207,20 @@ FROM game_sessions;
 SELECT 
     c.campaign_name_id, 
     SUM(gs.duration_ms) / 1000 / 60 AS total_minutes
-FROM campaigns c
-JOIN chapters ch ON c.id = ch.campaign_id
-JOIN chapter_sides cs ON ch.sid = cs.chapter_sid
-JOIN game_sessions gs ON cs.id = gs.chapter_side_id
+FROM Campaigns c
+JOIN Chapters ch ON c.id = ch.campaign_id
+JOIN GameSessions gs ON ch.sid = gs.chapter_sid
 GROUP BY c.campaign_name_id;
 ```
 
 ### 3. All Strawberries Collected in A-Sides
 ```sql
 SELECT 
-    ch.sid, 
-    cs.berries_collected, 
-    cs.berries_available
-FROM chapter_sides cs
-JOIN chapters ch ON cs.chapter_sid = ch.sid
-WHERE cs.side_id = 'A';
+    chapter_sid, 
+    berries_collected, 
+    berries_available
+FROM ChapterSides
+WHERE side_id = 'SIDEA';
 ```
 
 ### 4. Room-by-Room Death Leaderboard
@@ -217,7 +228,7 @@ WHERE cs.side_id = 'A';
 SELECT 
     room_name, 
     SUM(deaths_in_room) as total_deaths
-FROM game_session_chapter_room_stats
+FROM GameSessionChapterRoomStats
 GROUP BY room_name
 ORDER BY total_deaths DESC
 LIMIT 10;
@@ -228,6 +239,7 @@ LIMIT 10;
 SELECT 
     COUNT(*) as total_attempts,
     SUM(is_goldenberry_completed) as successful_completions
-FROM game_sessions
+FROM GameSessions
 WHERE is_goldenberry_attempt = 1;
 ```
+
