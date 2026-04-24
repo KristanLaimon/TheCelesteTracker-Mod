@@ -298,7 +298,7 @@ namespace Celeste.Mod.TheCelesteTracker_Mod
             if (isAlreadyCollectedBefore) return;
 
             SessionRAM.CurrentSession.AddOrUpdateRoomStat(SessionRAM.CurrentPlayingLevelArea, incrementStrawberryAchieved: true);
-            await DB.ChapterSide_IncrementBerriesCollected(SessionRAM.CurrentSession.chapter_side_id);
+            await DB.ChapterSide_IncrementBerriesCollected(SessionRAM.CurrentSession.chapter_sid, SessionRAM.CurrentSession.side_id);
         }
 
         private static void OnStrawberryBeingGrabbedByPlayer(On.Celeste.Strawberry.orig_OnPlayer orig, global::Celeste.Strawberry strawberry, global::Celeste.Player player)
